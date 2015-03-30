@@ -63,7 +63,7 @@ upload: clean
 # =============
 
 $(VIRTUALENV): requirements.txt
-	@[ -d $(VIRTUALENV) ] || virtualenv --no-site-packages $(VIRTUALENV)
+	@[ -d $(VIRTUALENV) ] || virtualenv --no-site-packages $(VIRTUALENV) --python=python3.4
 	@$(VIRTUALENV)/bin/pip install -r requirements.txt
 	@touch $(VIRTUALENV)
 
