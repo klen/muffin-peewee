@@ -46,13 +46,15 @@ Installation
 Usage
 =====
 
-Add 'muffin_peewee' to 'PLUGINS' in your Muffin Application configuration.
+Add `muffin_peewee` to `PLUGINS` in your Muffin Application configuration.
 
 Options
 -------
 
 `PEEWEE_CONNECTION` -- connection string to your database (sqlite:///db.sqlite)
+
 `PEEWEE_MIGRATIONS_ENABLED` -- enable migrations (True)
+
 `PEEWEE_MIGRATIONS_PATH` -- path to migration folder (migrations)
 
 Queries
@@ -73,13 +75,12 @@ Queries
 Migrations
 ----------
 
-::
-
-* Create migrations: ::
+Create migrations: ::
 
     $ muffin example.app:app create [NAME]
 
-* Run migrations: ::
+
+Run migrations: ::
 
     $ python example.app:app migrate [NAME]
 
