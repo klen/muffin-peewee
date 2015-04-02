@@ -43,7 +43,7 @@ class Router(object):
         try:
             MigrateHistory.create_table()
         except pw.OperationalError:
-            pass
+            self.database.rollback()
         return MigrateHistory
 
     @property
