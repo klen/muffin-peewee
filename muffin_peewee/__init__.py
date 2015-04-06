@@ -12,4 +12,3 @@ __author__ = "Kirill Klenov <horneds@gmail.com>"
 __license__ = "MIT"
 
 from .plugin import Plugin          # noqa
-from .models import Model, CModel   # noqa

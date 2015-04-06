@@ -23,7 +23,7 @@ class Model(pw.Model):
         return self._get_pk_value()
 
 
-class CModel(Model):
+class TModel(Model):
 
     """ Store created time. """
 

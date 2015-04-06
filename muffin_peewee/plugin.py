@@ -7,6 +7,7 @@ from muffin.plugins import BasePlugin
 from muffin.utils import Structure
 from playhouse.db_url import connect
 
+from .models import Model, TModel
 from .migrate import Router, MigrateHistory
 from .serialize import Serializer
 
@@ -22,6 +23,9 @@ class Plugin(BasePlugin):
         'migrations_enabled': True,
         'migrations_path': 'migrations',
     }
+
+    Model = Model
+    TModel = TModel
 
     def __init__(self, **options):
         super().__init__(**options)

@@ -14,10 +14,9 @@ def app(loop):
 
 @pytest.fixture(scope='session')
 def model(app):
-    from muffin_peewee import CModel
 
     @app.ps.peewee.register
-    class Test(CModel):
+    class Test(app.ps.peewee.TModel):
         data = peewee.CharField()
 
     Test.create_table()
