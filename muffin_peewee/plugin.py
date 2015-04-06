@@ -1,13 +1,11 @@
 import asyncio
 import concurrent
-import datetime as dt
 from functools import partial
 
 import peewee as pw
 from muffin.plugins import BasePlugin
 from muffin.utils import Structure
 from playhouse.db_url import connect
-from playhouse.shortcuts import model_to_dict
 
 from .migrate import Router, MigrateHistory
 from .serialize import Serializer
@@ -117,21 +115,3 @@ class Plugin(BasePlugin):
         self.models[model._meta.db_table] = model
         model._meta.database = self.database
         return model
-
-
-class Model(pw.Model):
-    created = pw.DateTimeField(default=dt.datetime.now)
-
-    def to_simple(self, recurse=False, exclude=None, **kwargs):
-        exclude = exclude or getattr(self._meta, 'exclude', None)
-        if exclude:
-            exclude = {field for field in self._meta.fields.values() if field.name in exclude}
-        return model_to_dict(self, recurse=recurse, exclude=exclude, **kwargs)
-
-    @property
-    def simple(self):
-        return self.to_simple()
-
-    @property
-    def pk(self):
-        return self._get_pk_value()
