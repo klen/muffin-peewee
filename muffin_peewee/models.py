@@ -27,4 +27,4 @@ class CModel(Model):
 
     """ Store created time. """
 
-    created = pw.DateTimeField(default=dt.datetime.now)
+    created = pw.DateTimeField(default=dt.datetime.utcnow)

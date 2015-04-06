@@ -14,9 +14,10 @@ def app(loop):
 
 @pytest.fixture(scope='session')
 def model(app):
+    from muffin_peewee import CModel
 
     @app.ps.peewee.register
-    class Test(peewee.Model):
+    class Test(CModel):
         data = peewee.CharField()
 
     Test.create_table()
@@ -26,7 +27,12 @@ def model(app):
 def test_peewee(app, model):
     assert app.ps.peewee
 
-    model(data='some').save()
+    ins = model(data='some')
+    ins.save()
+
+    assert ins.pk == ins.id
+    assert ins.created
+
     assert [d for d in model.select()]
 
 
