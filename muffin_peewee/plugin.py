@@ -1,14 +1,16 @@
 import asyncio
 import concurrent
+import datetime as dt
 from functools import partial
 
-import peewee
+import peewee as pw
+from muffin.plugins import BasePlugin
+from muffin.utils import Structure
 from playhouse.db_url import connect
+from playhouse.shortcuts import model_to_dict
 
 from .migrate import Router, MigrateHistory
 from .serialize import Serializer
-from muffin.plugins import BasePlugin
-from muffin.utils import Structure
 
 
 class Plugin(BasePlugin):
@@ -26,7 +28,7 @@ class Plugin(BasePlugin):
     def __init__(self, **options):
         super().__init__(**options)
 
-        self.database = peewee.Proxy()
+        self.database = pw.Proxy()
         self.serializer = Serializer()
         self.models = Structure()
 
@@ -48,7 +50,7 @@ class Plugin(BasePlugin):
 
         # Register migration commands
         @self.app.manage.command
-        def migrate(name:str=None):
+        def migrate(name: str=None):
             """ Run application's migrations.
 
             :param name: Choose a migration' name
@@ -57,7 +59,7 @@ class Plugin(BasePlugin):
             self.router.run(name)
 
         @self.app.manage.command
-        def create(name:str):
+        def create(name: str):
             """ Create a migration.
 
             :param name: Set name of migration [auto]
@@ -82,7 +84,7 @@ class Plugin(BasePlugin):
         return middleware
 
     def query(self, query):
-        if isinstance(query, peewee.SelectQuery):
+        if isinstance(query, pw.SelectQuery):
             return self.run(lambda: list(query))
         return self.run(query.execute)
 
@@ -97,7 +99,7 @@ class Plugin(BasePlugin):
             try:
                 with database.transaction():
                     return function(*args)
-            except peewee.PeeweeException:
+            except pw.PeeweeException:
                 database.rollback()
                 raise
             finally:
@@ -115,3 +117,21 @@ class Plugin(BasePlugin):
         self.models[model._meta.db_table] = model
         model._meta.database = self.database
         return model
+
+
+class Model(pw.Model):
+    created = pw.DateTimeField(default=dt.datetime.now)
+
+    def to_simple(self, recurse=False, exclude=None, **kwargs):
+        exclude = exclude or getattr(self._meta, 'exclude', None)
+        if exclude:
+            exclude = {field for field in self._meta.fields.values() if field.name in exclude}
+        return model_to_dict(self, recurse=recurse, exclude=exclude, **kwargs)
+
+    @property
+    def simple(self):
+        return self.to_simple()
+
+    @property
+    def pk(self):
+        return self._get_pk_value()
