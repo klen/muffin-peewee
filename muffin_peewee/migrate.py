@@ -5,7 +5,7 @@ from re import compile as re
 from shutil import copy
 
 import peewee as pw
-from playhouse.migrate import SchemaMigrator
+from playhouse.migrate import SchemaMigrator, Operation
 
 
 MIGRATE_TEMPLATE = op.join(
@@ -58,8 +58,8 @@ class Router(object):
 
     @property
     def diff(self):
-        db = set(self.db_migrations)
-        return [name for name in self.fs_migrations if name not in db]
+        dbms = set(self.db_migrations)
+        return [name for name in self.fs_migrations if name not in dbms]
 
     def create(self, name='auto'):
         """ Create a migration. """
@@ -143,15 +143,21 @@ class Migrator(object):
 
     """ Provide migrations. """
 
-    def __init__(self, db):
-        self.db = db
+    def __init__(self, database):
+        if isinstance(database, pw.Proxy):
+            database = database.obj
+
+        self.database = database
         self.orm = dict()
         self.ops = list()
-        self.migrator = SchemaMigrator.from_database(self.db)
+        self.migrator = SchemaMigrator.from_database(self.database)
 
     def run(self):
         for operation in self.ops:
-            operation()
+            if isinstance(operation, Operation):
+                operation.run()
+            else:
+                operation()
         self.clean()
 
     def clean(self):
@@ -160,22 +166,22 @@ class Migrator(object):
     def create_table(self, model):
         """ >> migrator.create_table(model) """
         self.orm[model._meta.db_table] = model
-        model._meta.database = self.db
-        self.ops.append(lambda: self.db.create_table(model))
+        model._meta.database = self.database
+        self.ops.append(lambda: self.database.create_table(model))
         return model
 
     @get_model
     def drop_table(self, model, cascade=True):
         """ >> migrator.drop_table(model, cascade=True) """
         del self.orm[model._meta.db_table]
-        self.ops.append(lambda: self.db.drop_table(model, cascade=cascade))
+        self.ops.append(lambda: self.database.drop_table(model, cascade=cascade))
         return None
 
     @get_model
     def add_columns(self, model, **fields):
         for name, field in fields.items():
             field.add_to_class(model, name)
-            self.ops.append(self.migrator.add_column(model._meta.db_table, name, field).run)
+            self.ops.append(self.migrator.add_column(model._meta.db_table, name, field))
         return model
 
     @get_model
@@ -185,7 +191,7 @@ class Migrator(object):
             self.__del_field__(model, field)
             self.ops.append(
                 self.migrator.drop_column(
-                    model._meta.db_table, field.db_column, cascade=cascade).run)
+                    model._meta.db_table, field.db_column, cascade=cascade))
         return model
 
     def __del_field__(self, model, field):
@@ -202,7 +208,7 @@ class Migrator(object):
         self.__del_field__(model, field)
         field.name = field.db_column = new_name
         field.add_to_class(model, new_name)
-        self.ops.append(self.migrator.rename_column(model._meta.db_table, old_name, new_name).run)
+        self.ops.append(self.migrator.rename_column(model._meta.db_table, old_name, new_name))
         return model
 
     @get_model
@@ -210,26 +216,26 @@ class Migrator(object):
         del self.orm[model._meta.db_table]
         model._meta.db_table = new_name
         self.orm[model._meta.db_table] = model
-        self.ops.append(self.migrator.rename_table(model._meta.db_table, new_name).run)
+        self.ops.append(self.migrator.rename_table(model._meta.db_table, new_name))
         return model
 
     @get_model
     def add_index(self, model, *columns, unique=False):
         model._meta.indexes.append((columns, unique))
-        self.ops.append(self.migrator.add_index(model._meta.db_table, columns, unique=unique).run)
+        self.ops.append(self.migrator.add_index(model._meta.db_table, columns, unique=unique))
         return model
 
     @get_model
     def drop_index(self, model, index_name):
-        self.ops.append(self.migrator.drop_index(model._meta.db_table, index_name).run)
+        self.ops.append(self.migrator.drop_index(model._meta.db_table, index_name))
         return model
 
     @get_model
     def add_not_null(self, model, name):
-        self.ops.append(self.migrator.add_not_null(model._meta.db_table, name).run)
+        self.ops.append(self.migrator.add_not_null(model._meta.db_table, name))
         return model
 
     @get_model
     def drop_not_null(self, model, name):
-        self.ops.append(self.migrator.drop_not_null(model._meta.db_table, name).run)
+        self.ops.append(self.migrator.drop_not_null(model._meta.db_table, name))
         return model
