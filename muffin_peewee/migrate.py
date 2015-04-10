@@ -2,7 +2,6 @@ import datetime as dt
 from cached_property import cached_property
 from os import path as op, listdir as ls, makedirs as md
 from re import compile as re
-from contextlib import contextmanager
 from shutil import copy
 
 import peewee as pw
@@ -104,14 +103,14 @@ class Router(object):
                 scope = {}
                 exec_in(code, scope)
                 migrate = scope.get('migrate', lambda m: None)
-
+                migrate(migrator, self.database, app=self.app)
                 if fake:
-                    with migrator.ctx(fake=fake) as migrator:
-                        return migrate(migrator, self.database, app=self.app)
+                    migrator.clean()
+                    return migrator
 
                 self.app.logger.info('Start migration %s', name)
                 with self.database.transaction():
-                    migrate(migrator, self.database, app=self.app)
+                    migrator.run()
                     self.model.create(name=name)
                     self.app.logger.info('Migrated %s', name)
 
@@ -147,57 +146,47 @@ class Migrator(object):
     def __init__(self, db):
         self.db = db
         self.orm = dict()
-        self.fake = False
+        self.ops = list()
         self.migrator = SchemaMigrator.from_database(self.db)
 
-    @contextmanager
-    def ctx(self, fake=False):
-        _fake, self.fake = self.fake, fake
-        try:
-            yield self
-        except:
-            self.fake = _fake
+    def run(self):
+        for operation in self.ops:
+            operation()
+        self.clean()
+
+    def clean(self):
+        self.ops = list()
 
     def create_table(self, model):
         """ >> migrator.create_table(model) """
         self.orm[model._meta.db_table] = model
         model._meta.database = self.db
-        if not self.fake:
-            self.db.create_table(model)
+        self.ops.append(lambda: self.db.create_table(model))
         return model
 
     @get_model
     def drop_table(self, model, cascade=True):
         """ >> migrator.drop_table(model, cascade=True) """
         del self.orm[model._meta.db_table]
-        if not self.fake:
-            self.db.drop_table(model, cascade=cascade)
+        self.ops.append(lambda: self.db.drop_table(model, cascade=cascade))
+        return None
 
     @get_model
     def add_columns(self, model, **fields):
-        operations = []
         for name, field in fields.items():
-            operations.append(self.migrator.add_column(model._meta.db_table, name, field))
             field.add_to_class(model, name)
-
-        if self.fake:
-            return model
-
-        for operation in operations:
-            operation.run()
+            self.ops.append(self.migrator.add_column(model._meta.db_table, name, field).run)
+        return model
 
     @get_model
     def drop_columns(self, model, *names, cascade=True):
-
         fields = [field for field in model._meta.fields.values() if field.name in names]
         for field in fields:
             self.__del_field__(model, field)
-
-        if self.fake:
-            return model
-
-        for field in fields:
-            self.migrator.drop_column(model._meta.db_table, field.db_column, cascade=cascade).run()
+            self.ops.append(
+                self.migrator.drop_column(
+                    model._meta.db_table, field.db_column, cascade=cascade).run)
+        return model
 
     def __del_field__(self, model, field):
         del model._meta.fields[field.name]
@@ -209,48 +198,38 @@ class Migrator(object):
 
     @get_model
     def rename_column(self, model, old_name, new_name):
-
         field = model._meta.fields[old_name]
         self.__del_field__(model, field)
         field.name = field.db_column = new_name
         field.add_to_class(model, new_name)
-
-        if self.fake:
-            return model
-
-        self.migrator.rename_column(model._meta.db_table, old_name, new_name).run()
+        self.ops.append(self.migrator.rename_column(model._meta.db_table, old_name, new_name).run)
+        return model
 
     @get_model
     def rename_table(self, model, new_name):
-        operation = self.migrator.rename_table(model._meta.db_table, new_name)
         del self.orm[model._meta.db_table]
         model._meta.db_table = new_name
         self.orm[model._meta.db_table] = model
-
-        if not self.fake:
-            operation.run()
+        self.ops.append(self.migrator.rename_table(model._meta.db_table, new_name).run)
+        return model
 
     @get_model
     def add_index(self, model, *columns, unique=False):
         model._meta.indexes.append((columns, unique))
-        operation = self.migrator.add_index(model._meta.db_table, columns, unique=unique)
-        if not self.fake:
-            operation.run()
+        self.ops.append(self.migrator.add_index(model._meta.db_table, columns, unique=unique).run)
+        return model
 
     @get_model
     def drop_index(self, model, index_name):
-        operation = self.migrator.drop_index(model._meta.db_table, index_name)
-        if not self.fake:
-            operation.run()
+        self.ops.append(self.migrator.drop_index(model._meta.db_table, index_name).run)
+        return model
 
     @get_model
     def add_not_null(self, model, name):
-        operation = self.migrator.add_not_null(model._meta.db_table, name)
-        if not self.fake:
-            operation.run()
+        self.ops.append(self.migrator.add_not_null(model._meta.db_table, name).run)
+        return model
 
     @get_model
     def drop_not_null(self, model, name):
-        operation = self.migrator.drop_not_null(model._meta.db_table, name)
-        if not self.fake:
-            operation.run()
+        self.ops.append(self.migrator.drop_not_null(model._meta.db_table, name).run)
+        return model
