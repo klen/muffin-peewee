@@ -191,12 +191,7 @@ class Migrator(object):
 
         fields = [field for field in model._meta.fields.values() if field.name in names]
         for field in fields:
-            del model._meta.fields[field.name]
-            del model._meta.columns[field.db_column]
-            delattr(model, field.name)
-            if isinstance(field, pw.ForeignKeyField):
-                delattr(field.rel_model, field.related_name)
-                del field.rel_model._meta.reverse_rel[field.related_name]
+            self.__del_field__(model, field)
 
         if self.fake:
             return model
@@ -204,20 +199,26 @@ class Migrator(object):
         for field in fields:
             self.migrator.drop_column(model._meta.db_table, field.db_column, cascade=cascade).run()
 
+    def __del_field__(self, model, field):
+        del model._meta.fields[field.name]
+        del model._meta.columns[field.db_column]
+        delattr(model, field.name)
+        if isinstance(field, pw.ForeignKeyField):
+            delattr(field.rel_model, field.related_name)
+            del field.rel_model._meta.reverse_rel[field.related_name]
+
     @get_model
     def rename_column(self, model, old_name, new_name):
-        operation = self.migrator.rename_column(model._meta.db_table, old_name, new_name)
-        fields = model._meta.fields
-        field = fields[old_name]
-        field.db_column = new_name
-        del fields[old_name]
-        model = type(model._meta.db_table, (pw.Model,), fields)
-        field.add_to_class(model, new_name)
-        model._meta.database = self.db
-        self.orm[model._meta.db_table] = model
 
-        if not self.fake:
-            operation.run()
+        field = model._meta.fields[old_name]
+        self.__del_field__(model, field)
+        field.name = field.db_column = new_name
+        field.add_to_class(model, new_name)
+
+        if self.fake:
+            return model
+
+        self.migrator.rename_column(model._meta.db_table, old_name, new_name).run()
 
     @get_model
     def rename_table(self, model, new_name):

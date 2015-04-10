@@ -86,3 +86,6 @@ def test_migrations(app, tmpdir):
 
     migrator.add_columns(Order, customer=peewee.ForeignKeyField(Customer, null=True))
     assert 'customer' in Order._meta.fields
+
+    migrator.rename_column(Order, 'number', 'identifier')
+    assert 'identifier' in Order._meta.fields
