@@ -42,7 +42,7 @@ class Router(object):
         MigrateHistory._meta.database = self.app.plugins.peewee.database
         try:
             MigrateHistory.create_table()
-        except pw.OperationalError:
+        except pw.DatabaseError:
             self.database.rollback()
         return MigrateHistory
 
