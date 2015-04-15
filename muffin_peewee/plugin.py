@@ -22,6 +22,7 @@ class Plugin(BasePlugin):
         'max_connections': 2,
         'migrations_enabled': True,
         'migrations_path': 'migrations',
+        'encoding': 'UTF8',
     }
 
     Model = Model
@@ -40,6 +41,11 @@ class Plugin(BasePlugin):
 
         # Setup Database
         self.database.initialize(connect(self.options['connection']))
+
+        # Fix encoding for pg
+        if isinstance(self.database.obj, pw.PostgresqlDatabase):
+            self.database.obj.get_conn().set_client_encoding(self.options.encoding)
+
         self.threadpool = concurrent.futures.ThreadPoolExecutor(
             max_workers=self.options['max_connections'])
 
