@@ -53,6 +53,8 @@ Options
 
 `PEEWEE_CONNECTION` -- connection string to your database (sqlite:///db.sqlite)
 
+`PEEWEE_CONNECTION_PARAMS` -- Additional params for connection ({})
+
 `PEEWEE_MIGRATIONS_ENABLED` -- enable migrations (True)
 
 `PEEWEE_MIGRATIONS_PATH` -- path to migration folder (migrations)

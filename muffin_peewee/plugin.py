@@ -1,11 +1,12 @@
 import asyncio
 import concurrent
 from functools import partial
+from urllib.parse import urlparse
 
 import peewee as pw
 from muffin.plugins import BasePlugin
 from muffin.utils import Structure
-from playhouse.db_url import connect
+from playhouse.db_url import parseresult_to_dict, schemes
 
 from .models import Model, TModel
 from .migrate import Router, MigrateHistory
@@ -22,7 +23,7 @@ class Plugin(BasePlugin):
         'max_connections': 2,
         'migrations_enabled': True,
         'migrations_path': 'migrations',
-        'encoding': 'UTF8',
+        'connection_params': {},
     }
 
     Model = Model
@@ -40,14 +41,11 @@ class Plugin(BasePlugin):
         super().setup(app)
 
         # Setup Database
-        self.database.initialize(connect(self.options['connection']))
-
-        # Fix encoding for pg
-        if isinstance(self.database.obj, pw.PostgresqlDatabase):
-            self.database.obj.get_conn().set_client_encoding(self.options.encoding)
+        self.database.initialize(connect(
+            self.options.connection, **self.options.connection_params))
 
         self.threadpool = concurrent.futures.ThreadPoolExecutor(
-            max_workers=self.options['max_connections'])
+            max_workers=self.options.max_connections)
 
         if not self.options.migrations_enabled:
             return
@@ -80,7 +78,7 @@ class Plugin(BasePlugin):
         """ Control connection to database. """
         @asyncio.coroutine
         def middleware(request):
-            if self.options['connection'].startswith('sqlite'):
+            if self.options.connection.startswith('sqlite'):
                 return (yield from handler(request))
 
             self.database.connect()
@@ -125,3 +123,20 @@ class Plugin(BasePlugin):
         self.models[model._meta.db_table] = model
         model._meta.database = self.database
         return model
+
+
+def connect(url, **params):
+    parsed = urlparse(url)
+    connect_kwargs = parseresult_to_dict(parsed)
+    connect_kwargs.update(params)
+    database_class = schemes.get(parsed.scheme)
+
+    if database_class is None:
+        if database_class in schemes:
+            raise RuntimeError('Attempted to use "%s" but a required library '
+                               'could not be imported.' % parsed.scheme)
+        else:
+            raise RuntimeError('Unrecognized or unsupported scheme: "%s".' %
+                               parsed.scheme)
+
+    return database_class(**connect_kwargs)
