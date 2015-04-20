@@ -33,6 +33,8 @@ def test_peewee(app, model):
     assert ins.created
 
     assert [d for d in model.select()]
+    assert ins.simple
+    assert ins.to_simple(only=('id', 'data')) == {'data': 'some', 'id': 1}
 
 
 def test_migrations(app, tmpdir):

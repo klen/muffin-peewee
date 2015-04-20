@@ -4,15 +4,29 @@ import peewee as pw
 from playhouse.shortcuts import model_to_dict
 
 
+def to_fields(meta, values):
+    if not values:
+        return values
+    values = set(values)
+    return {field for field in meta.fields.values() if field in values or field.name in values}
+
+
+def to_simple(model, **kwargs):
+    meta = model._meta
+    kwargs.setdefault('recurse', getattr(meta, 'recurse', False))
+    kwargs.setdefault('only', getattr(meta, 'only', None))
+    kwargs.setdefault('exclude', getattr(meta, 'exclude', None))
+    kwargs.setdefault('backrefs', getattr(meta, 'backrefs', False))
+    kwargs['exclude'] = to_fields(meta, kwargs['exclude'])
+    kwargs['only'] = to_fields(meta, kwargs['only'])
+    return model_to_dict(model, **kwargs)
+
+
 class Model(pw.Model):
 
     """ Upgraded Model class. Supports serialization and pk key. """
 
-    def to_simple(self, recurse=False, exclude=None, **kwargs):
-        exclude = exclude or getattr(self._meta, 'exclude', None)
-        if exclude:
-            exclude = {field for field in self._meta.fields.values() if field.name in exclude}
-        return model_to_dict(self, recurse=recurse, exclude=exclude, **kwargs)
+    to_simple = to_simple
 
     @property
     def simple(self):
