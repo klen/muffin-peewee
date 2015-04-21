@@ -25,7 +25,7 @@ setup(
     name=_project,
     version=_version,
     license=_license,
-    description=_read('DESCRIPTION'),
+    description="Peewee integration to Muffin framework",
     long_description=_read('README.rst'),
     platforms=('Any'),
     keywords = "django flask sqlalchemy testing mock stub mongoengine data".split(), # noqa
