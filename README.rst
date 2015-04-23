@@ -79,12 +79,24 @@ Migrations
 
 Create migrations: ::
 
-    $ muffin example.app:app create [NAME]
+    $ muffin example:app create [NAME]
 
 
 Run migrations: ::
 
-    $ python example.app:app migrate [NAME]
+    $ muffin example:app migrate [NAME]
+
+Load/Dump data to CSV
+---------------------
+
+Dump table `test` to CSV file: ::
+
+    $ muffin example:app csv_dump test
+
+
+Load data from CSV file to table `test`: ::
+
+    $ muffin example:app csv_load test
 
 
 .. _bugtracker:

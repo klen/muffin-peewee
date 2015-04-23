@@ -5,8 +5,9 @@ from urllib.parse import urlparse
 
 import peewee as pw
 from muffin.plugins import BasePlugin
-from muffin.utils import Structure
+from muffin.utils import Structure, MuffinException
 from playhouse.db_url import parseresult_to_dict, schemes
+from playhouse.csv_utils import dump_csv, load_csv
 
 from .models import Model, TModel
 from .migrate import Router, MigrateHistory
@@ -72,6 +73,38 @@ class Plugin(BasePlugin):
 
             """
             self.router.create(name)
+
+        @self.app.manage.command
+        def csv_dump(table: str, path: str='dump.csv'):
+            """ Dump DB table to CSV.
+
+            :param table: Table name for dump data
+            :param path: Path to file where data will be dumped
+
+            """
+            model = self.models.get(table)
+            if model is None:
+                raise MuffinException('Unknown db table: %s' % table)
+
+            with open(path, 'w') as fh:
+                dump_csv(model.select().order_by(model._meta.primary_key), fh)
+                self.app.logger.info('Dumped to %s' % path)
+
+        @self.app.manage.command
+        def csv_load(table: str, path: str='dump.csv', pk_in_csv: bool=False):
+            """ Load CSV to DB table.
+
+            :param table: Table name for load data
+            :param path: Path to file which from data will be loaded
+            :param pk_in_csv: Primary keys stored in CSV
+
+            """
+            model = self.models.get(table)
+            if model is None:
+                raise MuffinException('Unknown db table: %s' % table)
+
+            load_csv(model, path)
+            self.app.logger.info('Loaded from %s' % path)
 
     @asyncio.coroutine
     def middleware_factory(self, app, handler):
