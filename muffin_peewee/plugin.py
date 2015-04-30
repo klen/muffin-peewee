@@ -1,6 +1,6 @@
 import asyncio
 import concurrent
-from functools import partial
+from functools import partial, wraps
 from urllib.parse import urlparse
 
 import peewee as pw
@@ -136,6 +136,7 @@ class Plugin(BasePlugin):
         handler = to_coroutine(handler)
 
         @asyncio.coroutine
+        @wraps(handler)
         def middleware(request):
             self.database.connect()
             response = yield from handler(request)
