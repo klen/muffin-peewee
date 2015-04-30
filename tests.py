@@ -91,3 +91,10 @@ def test_migrations(app, tmpdir):
 
     migrator.rename_column(Order, 'number', 'identifier')
     assert 'identifier' in Order._meta.fields
+
+
+def test_connect(app, model):
+    from muffin_peewee.plugin import connect
+
+    db = connect('postgres+pool://name:pass@localhost:5432/db')
+    assert db
