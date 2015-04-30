@@ -15,7 +15,8 @@ from .migrate import Router, MigrateHistory
 from .serialize import Serializer
 
 
-schemes['postreqsl+pool'] = PooledPostgresqlDatabase
+schemes['postres+pool'] = PooledPostgresqlDatabase
+schemes['postresql+pool'] = PooledPostgresqlDatabase
 schemes['mysql+pool'] = PooledMySQLDatabase
 
 
