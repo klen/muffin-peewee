@@ -8,10 +8,15 @@ from muffin.plugins import BasePlugin
 from muffin.utils import Structure, MuffinException
 from playhouse.db_url import parseresult_to_dict, schemes
 from playhouse.csv_utils import dump_csv, load_csv
+from playhouse.pool import PooledPostgresqlDatabase, PooledMySQLDatabase
 
 from .models import Model, TModel
 from .migrate import Router, MigrateHistory
 from .serialize import Serializer
+
+
+schemes['postreqsl+pool'] = PooledPostgresqlDatabase
+schemes['mysql+pool'] = PooledMySQLDatabase
 
 
 class Plugin(BasePlugin):
