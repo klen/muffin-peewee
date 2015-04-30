@@ -1,11 +1,12 @@
 import asyncio
 import concurrent
-from functools import partial, wraps
+from functools import partial
+from contextlib import contextmanager
 from urllib.parse import urlparse
 
 import peewee as pw
 from muffin.plugins import BasePlugin
-from muffin.utils import Structure, MuffinException, to_coroutine
+from muffin.utils import Structure, MuffinException
 from playhouse.db_url import parseresult_to_dict, schemes
 from playhouse.csv_utils import dump_csv, load_csv
 from playhouse.pool import PooledPostgresqlDatabase, PooledMySQLDatabase
@@ -27,7 +28,7 @@ class Plugin(BasePlugin):
     name = 'peewee'
     defaults = {
         'connection': 'sqlite:///db.sqlite',
-        'connection_manage': True,
+        'connection_manual': False,
         'connection_params': {},
         'max_connections': 2,
         'migrations_enabled': True,
@@ -63,7 +64,7 @@ class Plugin(BasePlugin):
         self.register(MigrateHistory)
 
         # Disable connection middleware
-        if not self.options.connection_manage or self.options.connection.startswith('sqlite'):
+        if self.options.connection_manual or self.options.connection.startswith('sqlite'):
             self.app.middlewares.remove(self.middleware_factory)
 
         # Register migration commands
@@ -117,32 +118,23 @@ class Plugin(BasePlugin):
             load_csv(model, path)
             self.app.logger.info('Loaded from %s' % path)
 
+    @contextmanager
+    def manage(self):
+        """ Manage a database connection. """
+        try:
+            yield self.database.connect()
+        finally:
+            if not self.database.is_closed():
+                self.database.close()
+
     @asyncio.coroutine
     def middleware_factory(self, app, handler):
-        """ Manage a database connection. """
+        """ Manage a database connection while request is processing. """
         @asyncio.coroutine
         def middleware(request):
-            self.database.connect()
-            response = yield from handler(request)
-            if not self.database.is_closed():
-                self.database.close()
-            return response
-
-        return middleware
-
-    @asyncio.coroutine
-    def manage(self, handler):
-        """ Manage a database connection. """
-        handler = to_coroutine(handler)
-
-        @asyncio.coroutine
-        @wraps(handler)
-        def middleware(request):
-            self.database.connect()
-            response = yield from handler(request)
-            if not self.database.is_closed():
-                self.database.close()
-            return response
+            with self.manage():
+                response = yield from handler(request)
+                return response
 
         return middleware
 
