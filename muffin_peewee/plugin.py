@@ -63,10 +63,6 @@ class Plugin(BasePlugin):
         self.router = Router(self)
         self.register(MigrateHistory)
 
-        # Disable connection middleware
-        if self.options.connection_manual or self.options.connection.startswith('sqlite'):
-            self.app.middlewares.remove(self.middleware_factory)
-
         # Register migration commands
         @self.app.manage.command
         def migrate(name: str=None):
@@ -124,6 +120,7 @@ class Plugin(BasePlugin):
         try:
             yield self.database.connect()
         finally:
+            self.database.commit()
             if not self.database.is_closed():
                 self.database.close()
 
@@ -132,9 +129,16 @@ class Plugin(BasePlugin):
         """ Manage a database connection while request is processing. """
         @asyncio.coroutine
         def middleware(request):
-            with self.manage():
-                response = yield from handler(request)
-                return response
+            try:
+                if not (self.options.connection_manual or self.options.connection.startswith('sqlite')): # noqa
+                    with self.manage():
+                        return (yield from handler(request))
+
+                return (yield from handler(request))
+
+            except pw.DatabaseError:
+                self.database.rollback()
+                raise
 
         return middleware
 

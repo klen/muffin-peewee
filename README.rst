@@ -53,6 +53,8 @@ Options
 
 `PEEWEE_CONNECTION` -- connection string to your database (sqlite:///db.sqlite)
 
+`PEEWEE_CONNECTION_MANUAL` -- Control db connection manually
+
 `PEEWEE_CONNECTION_PARAMS` -- Additional params for connection ({})
 
 `PEEWEE_MIGRATIONS_ENABLED` -- enable migrations (True)
@@ -72,6 +74,19 @@ Queries
     @app.register
     def view(request):
         return [t.data for t in Test.select()]
+
+Manage connections
+------------------
+::
+
+    # Set configuration option `PEEWEE_CONNECTION_MANUAL` to True
+
+    # Use context manager
+    @app.register
+    def view(request):
+        with app.ps.peewee.manage() as conn:
+            # Work with db
+            # ...
 
 
 Migrations
