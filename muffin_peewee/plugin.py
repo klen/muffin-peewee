@@ -21,6 +21,9 @@ schemes['postgresql+pool'] = PooledPostgresqlDatabase
 schemes['mysql+pool'] = PooledMySQLDatabase
 
 
+pw.SqliteDatabase.register_fields({'uuid': 'UUID'})
+
+
 class Plugin(BasePlugin):
 
     """ Integrate peewee to Muffin. """

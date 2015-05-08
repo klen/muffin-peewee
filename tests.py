@@ -98,3 +98,17 @@ def test_connect(app, model):
 
     db = connect('postgres+pool://name:pass@localhost:5432/db')
     assert db
+
+
+def test_uuid(app):
+    """ Test for UUID in Sqlite. """
+    @app.ps.peewee.register
+    class M(app.ps.peewee.TModel):
+        data = peewee.UUIDField()
+    M.create_table()
+
+    import uuid
+    m = M(data=uuid.uuid1())
+    m.save()
+
+    assert M.get() == m
