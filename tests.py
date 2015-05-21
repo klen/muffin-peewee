@@ -92,6 +92,13 @@ def test_migrations(app, tmpdir):
     migrator.rename_column(Order, 'number', 'identifier')
     assert 'identifier' in Order._meta.fields
 
+    migrator.drop_not_null(Order, 'identifier')
+    assert Order._meta.fields['identifier'].null
+    assert Order._meta.columns['identifier'].null
+
+    migrator.add_default(Order, 'identifier', 11)
+    assert Order._meta.fields['identifier'].default == 11
+
 
 def test_connect(app, model):
     from muffin_peewee.plugin import connect

@@ -19,5 +19,6 @@ def migrate(migrator, database, **kwargs):
     > migrator.drop_index(Model, index_name)
     > migrator.add_not_null(Model, name)
     > migrator.drop_not_null(Model, name)
+    > migrator.add_default(Model, name, default)
 
     """

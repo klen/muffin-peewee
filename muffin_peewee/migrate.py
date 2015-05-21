@@ -232,10 +232,21 @@ class Migrator(object):
 
     @get_model
     def add_not_null(self, model, name):
+        field = model._meta.fields[name]
+        field.null = False
         self.ops.append(self.migrator.add_not_null(model._meta.db_table, name))
         return model
 
     @get_model
     def drop_not_null(self, model, name):
+        field = model._meta.fields[name]
+        field.null = True
         self.ops.append(self.migrator.drop_not_null(model._meta.db_table, name))
+        return model
+
+    @get_model
+    def add_default(self, model, name, default):
+        field = model._meta.fields[name]
+        field.default = default
+        self.ops.append(self.migrator.apply_default(model._meta.db_table, name, field))
         return model
