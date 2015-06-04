@@ -181,7 +181,7 @@ class Migrator(object):
     def add_columns(self, model, **fields):
         for name, field in fields.items():
             field.add_to_class(model, name)
-            self.ops.append(self.migrator.add_column(model._meta.db_table, name, field))
+            self.ops.append(self.migrator.add_column(model._meta.db_table, field.db_column, field))
         return model
 
     @get_model
