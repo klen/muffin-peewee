@@ -2,23 +2,16 @@ import asyncio
 import concurrent
 from functools import partial
 from contextlib import contextmanager
-from urllib.parse import urlparse
 
 import peewee as pw
 from muffin.plugins import BasePlugin
 from muffin.utils import Structure, MuffinException
-from playhouse.db_url import parseresult_to_dict, schemes
 from playhouse.csv_utils import dump_csv, load_csv
-from playhouse.pool import PooledPostgresqlDatabase, PooledMySQLDatabase
+from playhouse.db_url import connect
 
 from .models import Model, TModel
 from .migrate import Router, MigrateHistory
 from .serialize import Serializer
-
-
-schemes['postgres+pool'] = PooledPostgresqlDatabase
-schemes['postgresql+pool'] = PooledPostgresqlDatabase
-schemes['mysql+pool'] = PooledMySQLDatabase
 
 
 pw.SqliteDatabase.register_fields({'uuid': 'UUID'})
@@ -179,20 +172,3 @@ class Plugin(BasePlugin):
         self.models[model._meta.db_table] = model
         model._meta.database = self.database
         return model
-
-
-def connect(url, **params):
-    parsed = urlparse(url)
-    connect_kwargs = parseresult_to_dict(parsed)
-    connect_kwargs.update(params)
-    database_class = schemes.get(parsed.scheme)
-
-    if database_class is None:
-        if database_class in schemes:
-            raise RuntimeError('Attempted to use "%s" but a required library '
-                               'could not be imported.' % parsed.scheme)
-        else:
-            raise RuntimeError('Unrecognized or unsupported scheme: "%s".' %
-                               parsed.scheme)
-
-    return database_class(**connect_kwargs)
