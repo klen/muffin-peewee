@@ -7,7 +7,7 @@ import peewee as pw
 from muffin.plugins import BasePlugin
 from muffin.utils import Structure, MuffinException
 from playhouse.csv_utils import dump_csv, load_csv
-from playhouse.db_url import connect
+from playhouse.db_url import urlparse, parseresult_to_dict, schemes
 
 from .models import Model, TModel
 from .migrate import Router, MigrateHistory
@@ -172,3 +172,21 @@ class Plugin(BasePlugin):
         self.models[model._meta.db_table] = model
         model._meta.database = self.database
         return model
+
+
+# TODO: Remove when peewee > 2.6.1 will be released
+def connect(url, **connect_params):
+    parsed = urlparse(url)
+    connect_kwargs = parseresult_to_dict(parsed)
+    connect_kwargs.update(connect_params)
+    database_class = schemes.get(parsed.scheme)
+
+    if database_class is None:
+        if database_class in schemes:
+            raise RuntimeError('Attempted to use "%s" but a required library '
+                               'could not be imported.' % parsed.scheme)
+        else:
+            raise RuntimeError('Unrecognized or unsupported scheme: "%s".' %
+                               parsed.scheme)
+
+    return database_class(**connect_kwargs)
