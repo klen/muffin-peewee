@@ -27,7 +27,7 @@ class PostgresqlMigrator(PgM):
 
     @operation
     def change_column(self, table, column, field):
-        compiler = self.migrator.database.compiler()
+        compiler = self.database.compiler()
         return Clause(
             SQL('ALTER TABLE'), Entity(table), SQL('ALTER COLUMN TYPE'),
             compiler.field_definition(field))
