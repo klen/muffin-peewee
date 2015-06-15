@@ -106,10 +106,9 @@ def test_migrations(app, tmpdir):
     assert Order._meta.fields['identifier'].default == 11
     migrator.run()
 
-    migrator.change_columns(Order, identifier=peewee.CharField(max_length=500))
-    assert Order.identifier.max_length == 500
-    # SQLite doesnt support ALTER COLUMN
-    # migrator.run()
+    migrator.change_columns(Order, identifier=peewee.IntegerField(default=0))
+    assert Order.identifier.db_field == 'int'
+    migrator.run()
 
 
 def test_connect(app, model):

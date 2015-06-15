@@ -5,7 +5,12 @@ from re import compile as re
 from shutil import copy
 
 import peewee as pw
-from playhouse.migrate import SchemaMigrator, Operation, SQL, Entity, Clause
+from playhouse.migrate import (
+    SchemaMigrator as ScM,
+    PostgresqlMigrator as PgM,
+    SqliteMigrator as SqM,
+    Operation, SQL, Entity, Clause, PostgresqlDatabase, operation, SqliteDatabase
+)
 
 
 MIGRATE_TEMPLATE = op.join(
@@ -16,6 +21,46 @@ MIGRATE_TEMPLATE = op.join(
 def exec_in(codestr, glob, loc=None):
     code = compile(codestr, '<string>', 'exec', dont_inherit=True)
     exec(code, glob, loc)
+
+
+class PostgresqlMigrator(PgM):
+
+    @operation
+    def change_column(self, table, column, field):
+        compiler = self.migrator.database.compiler()
+        return Clause(
+            SQL('ALTER TABLE'), Entity(table), SQL('ALTER COLUMN TYPE'),
+            compiler.field_definition(field))
+
+
+class SqliteMigrator(SqM):
+
+    @operation
+    def change_column(self, table, column, field):
+        def _change(column_name, column_def):
+            compiler = self.database.compiler()
+            clause = compiler.field_definition(field)
+            sql, params = compiler.parse_node(clause)
+            return sql
+        return self._update_column(table, column, _change)
+
+
+class SchemaMigrator(ScM):
+
+    @classmethod
+    def from_database(cls, database):
+        if isinstance(database, PostgresqlDatabase):
+            return PostgresqlMigrator(database)
+        if isinstance(database, SqliteDatabase):
+            return SqliteMigrator(database)
+        super(SchemaMigrator, cls).from_database(database)
+
+    @operation
+    def change_column(self, table, column, field):
+        compiler = self.migrator.database.compiler()
+        return Clause(
+            SQL('ALTER TABLE'), Entity(table), SQL('ALTER COLUMN'),
+            compiler.field_definition(field))
 
 
 class MigrationError(Exception):
@@ -154,12 +199,12 @@ class Migrator(object):
         self.migrator = SchemaMigrator.from_database(self.database)
 
     def run(self):
-        for operation in self.ops:
-            if isinstance(operation, Operation):
-                self.app.logger.info("%s %s" % (operation.method, operation.args))
-                operation.run()
+        for opn in self.ops:
+            if isinstance(opn, Operation):
+                self.app.logger.info("%s %s" % (opn.method, opn.args))
+                opn.run()
             else:
-                operation()
+                opn()
         self.clean()
 
     def clean(self):
@@ -188,16 +233,10 @@ class Migrator(object):
 
     @get_model
     def change_columns(self, model, **fields):
-        compiler = self.migrator.database.compiler()
-
         for name, field in fields.items():
             field.add_to_class(model, name)
-
-            table = model._meta.db_table
-            sql, params = compiler.parse_node(Clause(
-                SQL('ALTER TABLE'), Entity(table), SQL('ALTER COLUMN'),
-                compiler.field_definition(field)))
-            self.ops.append(lambda: self.migrator.database.execute_sql(sql, params))
+            self.ops.append(self.migrator.change_column(
+                model._meta.db_table, field.db_column, field))
         return model
 
     @get_model
