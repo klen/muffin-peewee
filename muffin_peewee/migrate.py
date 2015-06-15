@@ -23,28 +23,6 @@ def exec_in(codestr, glob, loc=None):
     exec(code, glob, loc)
 
 
-class PostgresqlMigrator(PgM):
-
-    @operation
-    def change_column(self, table, column, field):
-        compiler = self.database.compiler()
-        field_clause = compiler.field_definition(field)
-        field_clause.nodes.insert(0, Entity('TYPE'))
-        return Clause(SQL('ALTER TABLE'), Entity(table), SQL('ALTER COLUMN'), field_clause)
-
-
-class SqliteMigrator(SqM):
-
-    @operation
-    def change_column(self, table, column, field):
-        def _change(column_name, column_def):
-            compiler = self.database.compiler()
-            clause = compiler.field_definition(field)
-            sql, params = compiler.parse_node(clause)
-            return sql
-        return self._update_column(table, column, _change)
-
-
 class SchemaMigrator(ScM):
 
     @classmethod
@@ -56,11 +34,37 @@ class SchemaMigrator(ScM):
         super(SchemaMigrator, cls).from_database(database)
 
     @operation
-    def change_column(self, table, column, field):
-        compiler = self.migrator.database.compiler()
-        return Clause(
-            SQL('ALTER TABLE'), Entity(table), SQL('ALTER COLUMN'),
-            compiler.field_definition(field))
+    def change_column(self, table, column_name, field):
+        operations = [self.alter_change_column(table, column_name, field)]
+        if not field.null:
+            operations.extend([self.add_not_null(table, column_name)])
+        return operations
+
+    def alter_change_column(self, table, column, field):
+        field_null, field.null = field.null, True
+        field_clause = self.database.compiler().field_definition(field)
+        field.null = field_null
+        return Clause(SQL('ALTER TABLE'), Entity(table), SQL('ALTER COLUMN'), field_clause)
+
+
+class PostgresqlMigrator(SchemaMigrator, PgM):
+
+    def alter_change_column(self, table, column_name, field):
+        clause = super(PostgresqlMigrator, self).alter_change_column(table, column_name, field)
+        field_clause = clause.nodes[-1]
+        field_clause.nodes.insert(1, SQL('TYPE'))
+        return clause
+
+
+class SqliteMigrator(SchemaMigrator, SqM):
+
+    def alter_change_column(self, table, column, field):
+        def _change(column_name, column_def):
+            compiler = self.database.compiler()
+            clause = compiler.field_definition(field)
+            sql, params = compiler.parse_node(clause)
+            return sql
+        return self._update_column(table, column, _change)
 
 
 class MigrationError(Exception):
