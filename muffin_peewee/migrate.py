@@ -28,9 +28,9 @@ class PostgresqlMigrator(PgM):
     @operation
     def change_column(self, table, column, field):
         compiler = self.database.compiler()
-        return Clause(
-            SQL('ALTER TABLE'), Entity(table), SQL('ALTER COLUMN TYPE'),
-            compiler.field_definition(field))
+        field_clause = compiler.field_definition(field)
+        field_clause.nodes.insert(0, Entity('TYPE'))
+        return Clause(SQL('ALTER TABLE'), Entity(table), SQL('ALTER COLUMN'), field_clause)
 
 
 class SqliteMigrator(SqM):
