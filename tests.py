@@ -110,6 +110,12 @@ def test_migrations(app, tmpdir):
     assert Order.identifier.db_field == 'int'
     migrator.run()
 
+    Order.create(identifier=55)
+    migrator.sql('UPDATE "order" SET identifier = 77;')
+    migrator.run()
+    order = Order.get()
+    assert order.identifier == 77
+
 
 def test_connect(app, model):
     from muffin_peewee.plugin import connect

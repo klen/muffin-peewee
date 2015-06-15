@@ -46,6 +46,11 @@ class SchemaMigrator(ScM):
         field.null = field_null
         return Clause(SQL('ALTER TABLE'), Entity(table), SQL('ALTER COLUMN'), field_clause)
 
+    @operation
+    def sql(self, sql, *params):
+        """ Execure raw SQL. """
+        return Clause(SQL(sql, *params))
+
 
 class PostgresqlMigrator(SchemaMigrator, PgM):
 
@@ -210,6 +215,10 @@ class Migrator(object):
             else:
                 opn()
         self.clean()
+
+    def sql(self, sql, *params):
+        """ Execure raw SQL. """
+        self.ops.append(self.migrator.sql(sql, *params))
 
     def clean(self):
         self.ops = list()
