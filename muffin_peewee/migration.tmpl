@@ -12,6 +12,7 @@ def migrate(migrator, database, **kwargs):
     > migrator.create_table(Model)
     > migrator.drop_table(Model, cascade=True)
     > migrator.add_columns(Model, **fields)
+    > migrator.change_columns(Model, **fields)
     > migrator.drop_columns(Model, *names, cascade=True)
     > migrator.rename_column(Model, old_name, new_name)
     > migrator.rename_table(Model, new_name)

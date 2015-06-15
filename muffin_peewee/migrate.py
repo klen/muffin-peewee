@@ -5,7 +5,7 @@ from re import compile as re
 from shutil import copy
 
 import peewee as pw
-from playhouse.migrate import SchemaMigrator, Operation
+from playhouse.migrate import SchemaMigrator, Operation, SQL, Entity, Clause
 
 
 MIGRATE_TEMPLATE = op.join(
@@ -79,7 +79,7 @@ class Router(object):
 
         self.app.logger.info('Start migrations')
 
-        migrator = Migrator(self.database)
+        migrator = Migrator(self.database, app=self.app)
         diff = self.diff
 
         if not diff:
@@ -143,11 +143,12 @@ class Migrator(object):
 
     """ Provide migrations. """
 
-    def __init__(self, database):
+    def __init__(self, database, app=None):
         if isinstance(database, pw.Proxy):
             database = database.obj
 
         self.database = database
+        self.app = app
         self.orm = dict()
         self.ops = list()
         self.migrator = SchemaMigrator.from_database(self.database)
@@ -155,6 +156,7 @@ class Migrator(object):
     def run(self):
         for operation in self.ops:
             if isinstance(operation, Operation):
+                self.app.logger.info("%s %s" % (operation.method, operation.args))
                 operation.run()
             else:
                 operation()
@@ -182,6 +184,20 @@ class Migrator(object):
         for name, field in fields.items():
             field.add_to_class(model, name)
             self.ops.append(self.migrator.add_column(model._meta.db_table, field.db_column, field))
+        return model
+
+    @get_model
+    def change_columns(self, model, **fields):
+        compiler = self.migrator.database.compiler()
+
+        for name, field in fields.items():
+            field.add_to_class(model, name)
+
+            table = model._meta.db_table
+            sql, params = compiler.parse_node(Clause(
+                SQL('ALTER TABLE'), Entity(table), SQL('ALTER COLUMN'),
+                compiler.field_definition(field)))
+            self.ops.append(lambda: self.migrator.database.execute_sql(sql, params))
         return model
 
     @get_model
