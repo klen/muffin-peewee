@@ -9,7 +9,7 @@ from muffin_debugtoolbar.utils import LoggingTrackingHandler
 LOGGER = logging.getLogger('peewee')
 
 
-class PeeweeDebugPanel(DebugPanel):
+class DebugPanel(DebugPanel):
 
     name = 'Peewee queries'
     template = jinja2.Template("""
@@ -32,7 +32,7 @@ class PeeweeDebugPanel(DebugPanel):
     """)
 
     def __init__(self, app, request=None):
-        super(PeeweeDebugPanel, self).__init__(app, request)
+        super(DebugPanel, self).__init__(app, request)
         LOGGER.setLevel(logging.DEBUG)
         self.handler = LoggingTrackingHandler()
 

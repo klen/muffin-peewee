@@ -12,3 +12,8 @@ __author__ = "Kirill Klenov <horneds@gmail.com>"
 __license__ = "MIT"
 
 from .plugin import Plugin          # noqa
+
+try:
+    from .debugtoolbar import DebugPanel # noqa
+except ImportError:
+    pass
