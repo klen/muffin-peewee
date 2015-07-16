@@ -1,3 +1,5 @@
+""" Implement the plugin. """
+
 import asyncio
 import concurrent
 from functools import partial
@@ -7,7 +9,7 @@ import peewee as pw
 from muffin.plugins import BasePlugin
 from muffin.utils import Structure, MuffinException
 from playhouse.csv_utils import dump_csv, load_csv
-from playhouse.db_url import urlparse, parseresult_to_dict, schemes
+from playhouse.db_url import connect
 
 from .models import Model, TModel
 from .migrate import Router, MigrateHistory
@@ -35,6 +37,7 @@ class Plugin(BasePlugin):
     TModel = TModel
 
     def __init__(self, **options):
+        """ Initialize the plugin. """
         super().__init__(**options)
 
         self.database = pw.Proxy()
@@ -139,6 +142,7 @@ class Plugin(BasePlugin):
         return middleware
 
     def query(self, query):
+        """ Async query. """
         if isinstance(query, pw.SelectQuery):
             return self.run(lambda: list(query))
         return self.run(query.execute)
@@ -164,29 +168,8 @@ class Plugin(BasePlugin):
             yield from self.app.loop.run_in_executor(
                 self.threadpool, iteration, self.database,  *args))
 
-    def to_dict(self, obj, **kwargs):
-        return self.serializer.serialize_object(obj, **kwargs)
-
     def register(self, model):
         """ Register a model in self. """
         self.models[model._meta.db_table] = model
         model._meta.database = self.database
         return model
-
-
-# TODO: Remove when peewee > 2.6.1 will be released
-def connect(url, **connect_params):
-    parsed = urlparse(url)
-    connect_kwargs = parseresult_to_dict(parsed)
-    connect_kwargs.update(connect_params)
-    database_class = schemes.get(parsed.scheme)
-
-    if database_class is None:
-        if database_class in schemes:
-            raise RuntimeError('Attempted to use "%s" but a required library '
-                               'could not be imported.' % parsed.scheme)
-        else:
-            raise RuntimeError('Unrecognized or unsupported scheme: "%s".' %
-                               parsed.scheme)
-
-    return database_class(**connect_kwargs)
