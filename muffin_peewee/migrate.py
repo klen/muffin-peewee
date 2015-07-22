@@ -302,14 +302,14 @@ class Migrator(object):
     def add_not_null(self, model, name):
         field = model._meta.fields[name]
         field.null = False
-        self.ops.append(self.migrator.add_not_null(model._meta.db_table, name))
+        self.ops.append(self.migrator.add_not_null(model._meta.db_table, field.db_column))
         return model
 
     @get_model
     def drop_not_null(self, model, name):
         field = model._meta.fields[name]
         field.null = True
-        self.ops.append(self.migrator.drop_not_null(model._meta.db_table, name))
+        self.ops.append(self.migrator.drop_not_null(model._meta.db_table, field.db_column))
         return model
 
     @get_model
