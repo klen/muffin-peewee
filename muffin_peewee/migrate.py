@@ -227,14 +227,14 @@ class Migrator(object):
         """ >> migrator.create_table(model) """
         self.orm[model._meta.db_table] = model
         model._meta.database = self.database
-        self.ops.append(lambda: self.database.create_table(model))
+        self.ops.append(lambda: model.create_table())
         return model
 
     @get_model
     def drop_table(self, model, cascade=True):
         """ >> migrator.drop_table(model, cascade=True) """
         del self.orm[model._meta.db_table]
-        self.ops.append(lambda: self.database.drop_table(model, cascade=cascade))
+        self.ops.append(lambda: model.drop_table(cascade=cascade))
         return None
 
     @get_model
