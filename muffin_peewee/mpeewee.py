@@ -85,25 +85,14 @@ class AIODatabase:
 
     @asyncio.coroutine
     def async_connect(self):
-        if self.deferred:
-            raise Exception('Error, database not properly initialized before connect')
-
         with (yield from self._aioconn_lock):
-            with self.exception_wrapper():
-                self._Database__local.conn = self._connect(self.database, **self.connect_kwargs)
-                self._Database__local.closed = False
-                self.initialize_connection(self._Database__local.conn)
+            self.connect()
         return self._Database__local.conn
 
     @asyncio.coroutine
     def async_close(self):
-        if self.deferred:
-            raise Exception('Error, database not properly initialized before connect')
-
         with (yield from self._aioconn_lock):
-            with self.exception_wrapper():
-                self._close(self._Database__local.conn)
-                self._Database__local.closed = True
+            self.close()
 
 
 class PooledAIODatabase:
@@ -123,11 +112,12 @@ class PooledAIODatabase:
             finally:
                 self._waiters.remove(fut)
 
-        return self._connect(self.database, **self.connect_kwargs)
+        self.connect()
+        return self._Database__local.conn
 
     @asyncio.coroutine
     def async_close(self):
-        self._close(self._Database__local.conn)
+        self.close()
         for waiter in self._waiters:
             if not waiter.done():
                 waiter.set_result(True)
