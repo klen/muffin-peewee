@@ -74,6 +74,8 @@ class _ContextManager:
 
 class AIODatabase:
 
+    _aioconn_lock = None
+
     def async_init(self, loop):
         """ Used when application is starting."""
         self._loop = loop
@@ -85,17 +87,25 @@ class AIODatabase:
 
     @asyncio.coroutine
     def async_connect(self):
+        if self._aioconn_lock is None:
+            raise Exception('Error, database not properly initialized before async connection')
+
         with (yield from self._aioconn_lock):
             self.connect()
         return self._Database__local.conn
 
     @asyncio.coroutine
     def async_close(self):
+        if self._aioconn_lock is None:
+            raise Exception('Error, database not properly initialized before async connection')
+
         with (yield from self._aioconn_lock):
             self.close()
 
 
 class PooledAIODatabase:
+
+    _waiters = None
 
     def async_init(self, loop):
         super(PooledAIODatabase, self).async_init(loop)
@@ -103,6 +113,9 @@ class PooledAIODatabase:
 
     @asyncio.coroutine
     def async_connect(self):
+        if self._waiters is None:
+            raise Exception('Error, database not properly initialized before async connection')
+
         if self._waiters or self.max_connections and (len(self._in_use) >= self.max_connections):
             fut = asyncio.Future(loop=self._loop)
             self._waiters.append(fut)
@@ -117,7 +130,7 @@ class PooledAIODatabase:
 
     @asyncio.coroutine
     def async_close(self):
-        self.close()
+        yield from super(PooledAIODatabase, self).async_close()
         for waiter in self._waiters:
             if not waiter.done():
                 waiter.set_result(True)

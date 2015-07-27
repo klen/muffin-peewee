@@ -37,26 +37,6 @@ def test_peewee(app, model):
     assert ins.to_simple(only=('id', 'data')) == {'data': 'some', 'id': 1}
 
 
-@pytest.mark.async
-def test_async_peewee(app, model):
-    conn = yield from app.ps.peewee.database.async_connect()
-    assert conn
-    assert conn.cursor()
-    yield from app.ps.peewee.database.async_close()
-
-    with pytest.raises(Exception):
-        conn.cursor()
-
-    assert app.ps.peewee.database.obj.execution_context_depth() == 0
-
-    with (yield from app.ps.peewee.manage()):
-        assert app.ps.peewee.database.obj.execution_context_depth() == 1
-        model.create_table()
-        model.select().execute()
-
-    assert app.ps.peewee.database.obj.execution_context_depth() == 0
-
-
 def test_migrations(app, tmpdir):
     assert app.ps.peewee.router
 
@@ -158,3 +138,23 @@ def test_uuid(app):
     m.save()
 
     assert M.get() == m
+
+
+@pytest.mark.async
+def test_async_peewee(app, model):
+    conn = yield from app.ps.peewee.database.async_connect()
+    assert conn
+    assert conn.cursor()
+    yield from app.ps.peewee.database.async_close()
+
+    with pytest.raises(Exception):
+        conn.cursor()
+
+    assert app.ps.peewee.database.obj.execution_context_depth() == 0
+
+    with (yield from app.ps.peewee.manage()):
+        assert app.ps.peewee.database.obj.execution_context_depth() == 1
+        model.create_table()
+        model.select().execute()
+
+    assert app.ps.peewee.database.obj.execution_context_depth() == 0

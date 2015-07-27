@@ -61,8 +61,7 @@ class _ContextManager:
 
         finally:
             self._db.pop_execution_context()
-            if not self._db.is_closed():
-                self._db.close()
+            self._db._close(self.connection)
             self._db = None
 
 
@@ -166,13 +165,18 @@ class Plugin(BasePlugin):
             self.app.logger.info('Loaded from %s' % path)
 
     def start(self, app):
-        """ Register connection's middleware and prepare self database. """
+        """Register connection's middleware and prepare self database."""
         self.database.async_init(app.loop)
         if not self.cfg.connection_manual:
             app.middlewares.insert(0, peewee_middleware_factory)
 
+    def finish(self, app):
+        """Close all connections."""
+        if hasattr(self.database.obj, 'close_all'):
+            self.database.close_all()
+
     def register(self, model):
-        """ Register a model in self. """
+        """Register a model in self."""
         self.models[model._meta.db_table] = model
         model._meta.database = self.database
         return model
