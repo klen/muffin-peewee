@@ -86,7 +86,7 @@ class Router(object):
     def __init__(self, plugin):
         self.app = plugin.app
         self.database = plugin.database
-        self.migrate_dir = plugin.options['migrations_path']
+        self.migrate_dir = plugin.cfg.migrations_path
 
     @cached_property
     def model(self):

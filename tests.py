@@ -13,7 +13,7 @@ def app(loop):
 
 
 @pytest.fixture(scope='session')
-def model(app):
+def model(app, loop):
 
     @app.ps.peewee.register
     class Test(app.ps.peewee.TModel):
@@ -35,6 +35,26 @@ def test_peewee(app, model):
     assert [d for d in model.select()]
     assert ins.simple
     assert ins.to_simple(only=('id', 'data')) == {'data': 'some', 'id': 1}
+
+
+@pytest.mark.async
+def test_async_peewee(app, model):
+    conn = yield from app.ps.peewee.database.async_connect()
+    assert conn
+    assert conn.cursor()
+    yield from app.ps.peewee.database.async_close()
+
+    with pytest.raises(Exception):
+        conn.cursor()
+
+    assert app.ps.peewee.database.obj.execution_context_depth() == 0
+
+    with (yield from app.ps.peewee.manage()):
+        assert app.ps.peewee.database.obj.execution_context_depth() == 1
+        model.create_table()
+        model.select().execute()
+
+    assert app.ps.peewee.database.obj.execution_context_depth() == 0
 
 
 def test_migrations(app, tmpdir):
@@ -119,9 +139,11 @@ def test_migrations(app, tmpdir):
 
 def test_connect(app, model):
     from muffin_peewee.plugin import connect
+    from muffin_peewee.mpeewee import schemes
 
     db = connect('postgres+pool://name:pass@localhost:5432/db')
     assert db
+    assert isinstance(db, schemes['postgres+pool'])
 
 
 def test_uuid(app):

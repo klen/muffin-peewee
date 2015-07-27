@@ -78,3 +78,10 @@ test: $(VIRTUAL_ENV)/bin/py.test
 
 .PHONY: t
 t: test
+
+example.db: $(VIRTUAL_ENV)
+	@$(VIRTUAL_ENV)/bin/muffin example migrate
+
+.PHONY: run
+run: $(VIRTUAL_ENV) example.db
+	@$(VIRTUAL_ENV)/bin/muffin example run --timeout=600

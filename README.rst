@@ -48,14 +48,22 @@ Usage
 
 Add `muffin_peewee` to `PLUGINS` in your Muffin Application configuration.
 
+Or install it manually like this: ::
+
+    db = muffin_peewee.Plugin(**{'options': 'here'})
+
+    app = muffin.Application('test')
+    app.install(db)
+
+
 Options
 -------
 
 `PEEWEE_CONNECTION` -- connection string to your database (sqlite:///db.sqlite)
 
-`PEEWEE_CONNECTION_MANUAL` -- Control db connection manually
-
 `PEEWEE_CONNECTION_PARAMS` -- Additional params for connection ({})
+
+`PEEWEE_CONNECTION_MANUAL` -- Doesn't manage db connections automatically
 
 `PEEWEE_MIGRATIONS_ENABLED` -- enable migrations (True)
 
@@ -84,7 +92,7 @@ Manage connections
     # Use context manager
     @app.register
     def view(request):
-        with app.ps.peewee.manage() as conn:
+        with (yield from app.ps.peewee.manage()):
             # Work with db
             # ...
 

@@ -1,22 +1,69 @@
 """ Implement the plugin. """
 
 import asyncio
-import concurrent
-from functools import partial
-from contextlib import contextmanager
 
-import peewee as pw
+import peewee
 from muffin.plugins import BasePlugin
-from muffin.utils import Structure, MuffinException
+from muffin.utils import Struct, MuffinException
 from playhouse.csv_utils import dump_csv, load_csv
-from playhouse.db_url import connect
 
 from .models import Model, TModel
 from .migrate import Router, MigrateHistory
-from .serialize import Serializer
+from .mpeewee import connect, AIODatabase
 
 
-pw.SqliteDatabase.register_fields({'uuid': 'UUID'})
+@asyncio.coroutine
+def peewee_middleware_factory(app, handler):
+    """ Manage a database connection while request is processing. """
+
+    @asyncio.coroutine
+    def middleware(request):
+        yield from app.ps.peewee.database.async_connect()
+
+        try:
+            response = yield from handler(request)
+            app.ps.peewee.database.commit()
+            return response
+
+        except peewee.DatabaseError:
+            app.ps.peewee.database.rollback()
+            raise
+
+        finally:
+            if not app.ps.peewee.database.is_closed():
+                yield from app.ps.peewee.database.async_close()
+
+    return middleware
+
+
+class _ContextManager:
+
+    """Context manager.
+
+    This enables the following idiom for acquiring and releasing a database around a block:
+
+        with (yield from database):
+            <block>
+    """
+
+    def __init__(self, db):
+        self._db = db
+        self._db.push_execution_context(self)
+
+    def __enter__(self):
+        return None
+
+    def __exit__(self, exc_type, exc, tb):
+        try:
+            self._db.commit()
+        except peewee.DatabaseError:
+            self._db.rollback()
+
+        finally:
+            self._db.pop_execution_context()
+            if not self._db.is_closed():
+                self._db.close()
+            self._db = None
 
 
 class Plugin(BasePlugin):
@@ -25,10 +72,15 @@ class Plugin(BasePlugin):
 
     name = 'peewee'
     defaults = {
+
+        # Connection params
         'connection': 'sqlite:///db.sqlite',
-        'connection_manual': False,
         'connection_params': {},
-        'max_connections': 2,
+
+        # Manage connections manually
+        'connection_manual': False,
+
+        # Setup migration engine
         'migrations_enabled': True,
         'migrations_path': 'migrations',
     }
@@ -40,9 +92,8 @@ class Plugin(BasePlugin):
         """ Initialize the plugin. """
         super().__init__(**options)
 
-        self.database = pw.Proxy()
-        self.serializer = Serializer()
-        self.models = Structure()
+        self.database = peewee.Proxy()
+        self.models = Struct()
 
     def setup(self, app):
         """ Initialize the application. """
@@ -50,12 +101,13 @@ class Plugin(BasePlugin):
 
         # Setup Database
         self.database.initialize(connect(
-            self.options.connection, **self.options.connection_params))
+            self.cfg.connection, **self.cfg.connection_params))
 
-        self.threadpool = concurrent.futures.ThreadPoolExecutor(
-            max_workers=self.options.max_connections)
+        # Fix SQLite in-memory database
+        if self.database.database == ':memory:':
+            self.cfg.connection_manual = True
 
-        if not self.options.migrations_enabled:
+        if not self.cfg.migrations_enabled:
             return
 
         # Setup migration engine
@@ -113,63 +165,54 @@ class Plugin(BasePlugin):
             load_csv(model, path)
             self.app.logger.info('Loaded from %s' % path)
 
-    @contextmanager
-    def manage(self):
-        """ Manage a database connection. """
-        try:
-            yield self.database.connect()
-        finally:
-            self.database.commit()
-            if not self.database.is_closed():
-                self.database.close()
-
-    @asyncio.coroutine
-    def middleware_factory(self, app, handler):
-        """ Manage a database connection while request is processing. """
-        @asyncio.coroutine
-        def middleware(request):
-            try:
-                if not (self.options.connection_manual or self.options.connection.startswith('sqlite')): # noqa
-                    with self.manage():
-                        return (yield from handler(request))
-
-                return (yield from handler(request))
-
-            except pw.DatabaseError:
-                self.database.rollback()
-                raise
-
-        return middleware
-
-    def query(self, query):
-        """ Async query. """
-        if isinstance(query, pw.SelectQuery):
-            return self.run(lambda: list(query))
-        return self.run(query.execute)
-
-    @asyncio.coroutine
-    def run(self, function, *args, **kwargs):
-        """ Run sync code asyncronously. """
-        if kwargs:
-            function = partial(function, **kwargs)
-
-        def iteration(database, *args):
-            database.connect()
-            try:
-                with database.transaction():
-                    return function(*args)
-            except pw.PeeweeException:
-                database.rollback()
-                raise
-            finally:
-                database.commit()
-
-        return (
-            yield from self.app.loop.run_in_executor(
-                self.threadpool, iteration, self.database,  *args))
+    def start(self, app):
+        """ Register connection's middleware and prepare self database. """
+        self.database.async_init(app.loop)
+        if not self.cfg.connection_manual:
+            app.middlewares.insert(0, peewee_middleware_factory)
 
     def register(self, model):
         """ Register a model in self. """
         self.models[model._meta.db_table] = model
         model._meta.database = self.database
         return model
+
+    @asyncio.coroutine
+    def manage(self):
+        """ Manage a database connection. """
+        cm = _ContextManager(self.database)
+        if (self.database.obj, AIODatabase):
+            cm.connection = yield from self.database.async_connect()
+
+        else:
+            cm.connection = self.database.connect()
+
+        return cm
+
+
+#    def query(self, query):
+#        """ Async query. """
+#        if isinstance(query, pw.SelectQuery):
+#            return self.run(lambda: list(query))
+#        return self.run(query.execute)
+#
+#    @asyncio.coroutine
+#    def run(self, function, *args, **kwargs):
+#        """ Run sync code asyncronously. """
+#        if kwargs:
+#            function = partial(function, **kwargs)
+#
+#        def iteration(database, *args):
+#            database.connect()
+#            try:
+#                with database.transaction():
+#                    return function(*args)
+#            except pw.PeeweeException:
+#                database.rollback()
+#                raise
+#            finally:
+#                database.commit()
+#
+#        return (
+#            yield from self.app.loop.run_in_executor(
+#                self.threadpool, iteration, self.database,  *args))
