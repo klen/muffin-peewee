@@ -2,7 +2,7 @@ import asyncio
 import collections
 
 import peewee
-from muffin.utils import tlocals, slocal
+from muffin.utils import slocal
 from playhouse.db_url import parseresult_to_dict, urlparse, schemes
 from playhouse.pool import PooledDatabase, PooledMySQLDatabase, PooledPostgresqlDatabase
 
@@ -31,15 +31,12 @@ class _ConnectionTaskLocal(slocal):
         try:
             return super(_ConnectionTaskLocal, self).__getattr__(name)
         except AttributeError:
+
             if name not in CONN_PARAMS:
                 raise
 
             default = CONN_PARAMS[name]()
-
-            if self._loop.is_running():
-                self.__curtask__[name] = default
-            else:
-                setattr(tlocals, name, default)
+            setattr(self, name, default)
 
             return default
 
