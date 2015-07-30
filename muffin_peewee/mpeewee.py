@@ -125,13 +125,12 @@ class PooledAIODatabase:
         self.connect()
         return self._Database__local.conn
 
-    @asyncio.coroutine
-    def async_close(self):
-        yield from super(PooledAIODatabase, self).async_close()
+    def _close(self, *args, **kwargs):
         for waiter in self._waiters:
             if not waiter.done():
                 waiter.set_result(True)
                 break
+        super(PooledAIODatabase, self)._close(*args, **kwargs)
 
 
 schemes['sqlite'] = type('AIOSqliteDatabase', (AIODatabase, peewee.SqliteDatabase), {})
