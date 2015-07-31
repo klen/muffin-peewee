@@ -1,3 +1,5 @@
+"""Manage database connections asyncrounosly."""
+
 import asyncio
 import collections
 
@@ -27,9 +29,10 @@ class _ConnectionTaskLocal(slocal):
     otherwise is local to current thread.
 
     """
-    def __getattr__(self, name):
+
+    def __getattribute__(self, name):
         try:
-            return super(_ConnectionTaskLocal, self).__getattr__(name)
+            return super(_ConnectionTaskLocal, self).__getattribute__(name)
         except AttributeError:
 
             if name not in CONN_PARAMS:
@@ -71,6 +74,8 @@ class _ContextManager:
 
 class AIODatabase:
 
+    """ Support for async operations. """
+
     _aioconn_lock = None
 
     def async_init(self, loop):
@@ -84,6 +89,7 @@ class AIODatabase:
 
     @asyncio.coroutine
     def async_connect(self):
+        """ Catch a connection asyncrounosly. """
         if self._aioconn_lock is None:
             raise Exception('Error, database not properly initialized before async connection')
 
@@ -93,6 +99,7 @@ class AIODatabase:
 
     @asyncio.coroutine
     def async_close(self):
+        """ Close the current connection asyncrounosly. """
         if self._aioconn_lock is None:
             raise Exception('Error, database not properly initialized before async connection')
 

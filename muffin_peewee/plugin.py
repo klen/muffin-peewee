@@ -15,7 +15,6 @@ from .mpeewee import connect, AIODatabase
 @asyncio.coroutine
 def peewee_middleware_factory(app, handler):
     """ Manage a database connection while request is processing. """
-
     @asyncio.coroutine
     def middleware(request):
         yield from app.ps.peewee.database.async_connect()
