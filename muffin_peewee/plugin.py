@@ -15,22 +15,24 @@ from .mpeewee import connect, AIODatabase
 @asyncio.coroutine
 def peewee_middleware_factory(app, handler):
     """ Manage a database connection while request is processing. """
+    database = app.ps.peewee.database
+
     @asyncio.coroutine
     def middleware(request):
-        yield from app.ps.peewee.database.async_connect()
+        yield from database.async_connect()
 
         try:
             response = yield from handler(request)
-            app.ps.peewee.database.commit()
+            database.commit()
             return response
 
         except peewee.DatabaseError:
-            app.ps.peewee.database.rollback()
+            database.rollback()
             raise
 
         finally:
-            if not app.ps.peewee.database.is_closed():
-                yield from app.ps.peewee.database.async_close()
+            if not database.is_closed():
+                yield from database.async_close()
 
     return middleware
 

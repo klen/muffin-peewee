@@ -30,6 +30,32 @@ def to_simple(model, **kwargs):
     return model_to_dict(model, **kwargs)
 
 
+class Choices:
+
+    """Model's choices helper."""
+
+    def __init__(self, *choices):
+        self._choices = []
+        self._reversed = {}
+        for choice in choices:
+            if isinstance(choice, str):
+                choice = (choice, choice)
+            self._choices.append(choice)
+            self._reversed[str(choice[1])] = choice[0]
+
+    def __getattr__(self, name, default=None):
+        return self._reversed.get(name, default)
+
+    def __iter__(self):
+        return iter(self._choices)
+
+    def __str__(self):
+        return ", ".join(self._reversed.keys())
+
+    def __repr__(self):
+        return "<Choices: %s>" % self
+
+
 class Model(pw.Model):
 
     """ Upgraded Model class. Supports serialization and model.pk attribute. """
