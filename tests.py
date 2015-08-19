@@ -14,10 +14,12 @@ def app(loop):
 
 @pytest.fixture(scope='session')
 def model(app, loop):
+    from muffin_peewee.fields import JSONField
 
     @app.ps.peewee.register
     class Test(app.ps.peewee.TModel):
         data = peewee.CharField()
+        json = JSONField(default={})
 
     Test.create_table()
     return Test
@@ -26,13 +28,16 @@ def model(app, loop):
 def test_peewee(app, model):
     assert app.ps.peewee
 
-    ins = model(data='some')
+    ins = model(data='some', json={'key': 'value'})
     ins.save()
 
     assert ins.pk == ins.id
+    assert ins.json
     assert ins.created
 
-    assert [d for d in model.select()]
+    test = model.get()
+    assert test.json == {'key': 'value'}
+
     assert ins.simple
     assert ins.to_simple(only=('id', 'data')) == {'data': 'some', 'id': 1}
 
