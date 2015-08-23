@@ -170,7 +170,7 @@ class Router(object):
 
         except Exception as exc:
             self.database.rollback()
-            self.app.logger.error(exc)
+            self.app.logger.exception(exc)
             raise
 
 

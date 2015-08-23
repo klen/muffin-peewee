@@ -5,6 +5,9 @@ from peewee import Field, PostgresqlDatabase
 
 try:
     from playhouse.postgres_ext import Json, JsonLookup
+    PostgresqlDatabase.register_fields({
+        'json': 'json'
+    })
 except:
     Json = JsonLookup = None
 

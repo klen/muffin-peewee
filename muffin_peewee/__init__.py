@@ -13,6 +13,7 @@ __license__ = "MIT"
 
 from .plugin import Plugin                  # noqa
 from .models import Model, TModel, Choices  # noqa
+from .fields import JSONField               # noqa
 
 try:
     from .debugtoolbar import DebugPanel # noqa
