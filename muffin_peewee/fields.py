@@ -1,6 +1,6 @@
 import ujson
 from cached_property import cached_property
-from peewee import Field, PostgresqlDatabase
+from peewee import Field, PostgresqlDatabase, Proxy
 
 
 try:
@@ -21,7 +21,10 @@ class JSONField(Field):
 
     @cached_property
     def db_field(self):
-        if Json and isinstance(self.get_database(), PostgresqlDatabase):
+        database = self.get_database()
+        if isinstance(database, Proxy):
+            database = database.obj
+        if Json and isinstance(database, PostgresqlDatabase):
             return 'json'
         return 'text'
 
