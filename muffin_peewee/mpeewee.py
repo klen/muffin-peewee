@@ -74,12 +74,12 @@ class _ContextManager:
 
 class AIODatabase:
 
-    """ Support for async operations. """
+    """Support for async operations."""
 
     _aioconn_lock = None
 
     def async_init(self, loop):
-        """ Used when application is starting."""
+        """Used when application is starting."""
         self._loop = loop
         self._aioconn_lock = asyncio.Lock(loop=loop)
 
@@ -89,7 +89,7 @@ class AIODatabase:
 
     @asyncio.coroutine
     def async_connect(self):
-        """ Catch a connection asyncrounosly. """
+        """Catch a connection asyncrounosly."""
         if self._aioconn_lock is None:
             raise Exception('Error, database not properly initialized before async connection')
 
@@ -99,7 +99,7 @@ class AIODatabase:
 
     @asyncio.coroutine
     def async_close(self):
-        """ Close the current connection asyncrounosly. """
+        """Close the current connection asyncrounosly."""
         if self._aioconn_lock is None:
             raise Exception('Error, database not properly initialized before async connection')
 
@@ -109,14 +109,18 @@ class AIODatabase:
 
 class PooledAIODatabase:
 
+    """Async pool."""
+
     _waiters = None
 
     def async_init(self, loop):
+        """Initialize self."""
         super(PooledAIODatabase, self).async_init(loop)
         self._waiters = collections.deque()
 
     @asyncio.coroutine
     def async_connect(self):
+        """Async connection."""
         if self._waiters is None:
             raise Exception('Error, database not properly initialized before async connection')
 
@@ -156,6 +160,7 @@ schemes['postgres+pool'] = schemes['postgresql+pool'] = type(
 
 
 def connect(url, **connect_params):
+    """Support async databases."""
     parsed = urlparse(url)
     connect_kwargs = parseresult_to_dict(parsed)
     connect_kwargs.update(connect_params)

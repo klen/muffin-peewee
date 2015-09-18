@@ -1,7 +1,4 @@
-"""
-    muffin-peewee description.
-
-"""
+"""Support Peewee ORM in Muffin framework."""
 
 # Package information
 # ===================

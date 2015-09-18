@@ -1,4 +1,4 @@
-""" Implement the plugin. """
+"""Implement the plugin."""
 
 import asyncio
 
@@ -14,7 +14,7 @@ from .mpeewee import connect, AIODatabase
 
 @asyncio.coroutine
 def peewee_middleware_factory(app, handler):
-    """ Manage a database connection while request is processing. """
+    """Manage a database connection while request is processing."""
     database = app.ps.peewee.database
 
     @asyncio.coroutine
@@ -68,7 +68,7 @@ class _ContextManager:
 
 class Plugin(BasePlugin):
 
-    """ Integrate peewee to Muffin. """
+    """Integrate Peewee to Muffin."""
 
     name = 'peewee'
     defaults = {
@@ -89,14 +89,14 @@ class Plugin(BasePlugin):
     TModel = TModel
 
     def __init__(self, **options):
-        """ Initialize the plugin. """
+        """Initialize the plugin."""
         super().__init__(**options)
 
         self.database = peewee.Proxy()
         self.models = Struct()
 
     def setup(self, app):
-        """ Initialize the application. """
+        """Initialize the application."""
         super().setup(app)
 
         # Setup Database
@@ -117,29 +117,26 @@ class Plugin(BasePlugin):
         # Register migration commands
         @self.app.manage.command
         def migrate(name: str=None):
-            """ Run application's migrations.
+            """Run application's migrations.
 
             :param name: Choose a migration' name
-
             """
             self.router.run(name)
 
         @self.app.manage.command
         def create(name: str):
-            """ Create a migration.
+            """Create a migration.
 
             :param name: Set name of migration [auto]
-
             """
             self.router.create(name)
 
         @self.app.manage.command
         def csv_dump(table: str, path: str='dump.csv'):
-            """ Dump DB table to CSV.
+            """Dump DB table to CSV.
 
             :param table: Table name for dump data
             :param path: Path to file where data will be dumped
-
             """
             model = self.models.get(table)
             if model is None:
@@ -151,12 +148,11 @@ class Plugin(BasePlugin):
 
         @self.app.manage.command
         def csv_load(table: str, path: str='dump.csv', pk_in_csv: bool=False):
-            """ Load CSV to DB table.
+            """Load CSV to DB table.
 
             :param table: Table name for load data
             :param path: Path to file which from data will be loaded
             :param pk_in_csv: Primary keys stored in CSV
-
             """
             model = self.models.get(table)
             if model is None:
@@ -184,7 +180,7 @@ class Plugin(BasePlugin):
 
     @asyncio.coroutine
     def manage(self):
-        """ Manage a database connection. """
+        """Manage a database connection."""
         cm = _ContextManager(self.database)
         if (self.database.obj, AIODatabase):
             cm.connection = yield from self.database.async_connect()

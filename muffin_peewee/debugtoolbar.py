@@ -1,3 +1,5 @@
+"""Debugtoolbar itegration for Muffin-Peewee."""
+
 import logging
 import jinja2
 import datetime as dt
@@ -10,6 +12,8 @@ LOGGER = logging.getLogger('peewee')
 
 
 class DebugPanel(DebugPanel):
+
+    """Provide information about executed SQL queries."""
 
     name = 'Peewee queries'
     template = jinja2.Template("""
@@ -32,24 +36,28 @@ class DebugPanel(DebugPanel):
     """)
 
     def __init__(self, app, request=None):
+        """Initialize the panel."""
         super(DebugPanel, self).__init__(app, request)
         LOGGER.setLevel(logging.DEBUG)
         self.handler = LoggingTrackingHandler()
 
     def wrap_handler(self, handler, context_switcher):
+        """Enable/Disable handler."""
         context_switcher.add_context_in(lambda: LOGGER.addHandler(self.handler))
         context_switcher.add_context_out(lambda: LOGGER.removeHandler(self.handler))
 
     @property
     def nav_title(self):
-        """ Get a navigation title. """
+        """Get a navigation title."""
         return "%s (%s)" % (self.title, len(self.handler.records))
 
     @property
     def has_content(self):
+        """Return true if records were logged."""
         return self.handler.records
 
     def render_vars(self):
+        """Template variables."""
         return {
             'records': [
                 {
