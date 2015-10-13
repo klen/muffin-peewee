@@ -96,7 +96,7 @@ class Router(object):
 
     """Control migrations."""
 
-    filemask = re(r"[\d]{3}_[^\.]+\.py")
+    filemask = re(r"[\d]{3}_[^\.]+\.py$")
 
     def __init__(self, plugin):
         """Initialize the router."""
