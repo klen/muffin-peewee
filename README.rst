@@ -17,10 +17,6 @@ Muffin Peewee -- Peewee ORM integration to Muffin framework.
 .. image:: http://img.shields.io/pypi/dm/muffin-peewee.svg?style=flat-square
     :target: https://pypi.python.org/pypi/muffin-peewee
 
-.. image:: http://img.shields.io/gratipay/klen.svg?style=flat-square
-    :target: https://www.gratipay.com/klen/
-    :alt: Donate
-
 .. _contents:
 
 .. contents::
@@ -150,6 +146,14 @@ License
 =======
 
 Licensed under a `MIT license`_.
+
+If you wish to express your appreciation for the project, you are welcome to send
+a postcard to: ::
+
+    Kirill Klenov
+    pos. Severny 8-3
+    MO, Istra, 143500
+    Russia
 
 .. _links:
 
