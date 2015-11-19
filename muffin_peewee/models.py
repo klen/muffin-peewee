@@ -62,9 +62,64 @@ class Choices:
         return "<Choices: %s>" % self
 
 
-class Model(pw.Model):
+class Signal:
 
-    """Upgraded Model class. Supports serialization and model.pk attribute."""
+    """Simplest signals implementation.
+
+    ::
+        @Model.post_save
+        def example(instance, created=False):
+            pass
+
+    """
+
+    __slots__ = 'receivers'
+
+    def __init__(self):
+        """Initialize the signal."""
+        self.receivers = []
+
+    def connect(self, receiver):
+        """Append receiver."""
+        if not callable(receiver):
+            raise ValueError('Invalid receiver: %s' % receiver)
+        self.receivers.append(receiver)
+
+    def __call__(self, receiver):
+        """Support decorators.."""
+        self.connect(receiver)
+        return receiver
+
+    def disconnect(self, receiver):
+        """Remove receiver."""
+        try:
+            self.receivers.remove(receiver)
+        except ValueError:
+            raise ValueError('Unknown receiver: %s' % receiver)
+
+    def send(self, instance, *args, **kwargs):
+        """Send signal."""
+        for receiver in self.receivers:
+            receiver(instance, *args, **kwargs)
+
+
+class BaseSignalModel(pw.BaseModel):
+
+    """Create signals."""
+
+    def __new__(mcs, name, bases, attrs):
+        """Create signals."""
+        cls = super(BaseSignalModel, mcs).__new__(mcs, name, bases, attrs)
+        cls.pre_save = Signal()
+        cls.pre_delete = Signal()
+        cls.post_delete = Signal()
+        cls.post_save = Signal()
+        return cls
+
+
+class Model(pw.Model, pw.with_metaclass(BaseSignalModel)):
+
+    """Upgraded Model class. Supports serialization, signals and model.pk attribute."""
 
     to_simple = to_simple
 
@@ -77,6 +132,19 @@ class Model(pw.Model):
     def pk(self):
         """Return primary key value."""
         return self._get_pk_value()
+
+    def save(self, force_insert=False, **kwargs):
+        """Send signals."""
+        created = force_insert or not bool(self.pk)
+        self.pre_save.send(self, created=created)
+        super(Model, self).save(force_insert=force_insert, **kwargs)
+        self.post_save.send(self, created=created)
+
+    def delete_instance(self, *args, **kwargs):
+        """Send signals."""
+        self.pre_delete.send(self)
+        super(Model, self).delete_instance(*args, **kwargs)
+        self.post_delete.send(self)
 
 
 class TModel(Model):

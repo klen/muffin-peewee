@@ -1,3 +1,7 @@
+2015-11-19  klen
+
+	* Support signals in muffin_peewee models class.
+
 2015-08-19  klen
 
 	* Added muffin_peewee.field.JSONField

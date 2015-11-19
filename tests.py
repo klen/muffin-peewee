@@ -28,12 +28,30 @@ def model(app, loop):
 def test_peewee(app, model):
     assert app.ps.peewee
 
+    with pytest.raises(ValueError):
+        model.post_save.connect(None)
+
+    @model.post_save
+    def test_signal(instance, created=False):
+        instance.saved = getattr(instance, 'saved', 0) + 1
+
     ins = model(data='some', json={'key': 'value'})
     ins.save()
 
     assert ins.pk == ins.id
     assert ins.json
     assert ins.created
+    assert ins.saved == 1
+
+    ins.save()
+    assert ins.saved == 2
+
+    model.post_save.disconnect(test_signal)
+    ins.save()
+    assert ins.saved == 2
+
+    with pytest.raises(ValueError):
+        model.post_save.disconnect(test_signal)
 
     test = model.get()
     assert test.json == {'key': 'value'}
