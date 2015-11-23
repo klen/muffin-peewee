@@ -57,7 +57,7 @@ class SchemaMigrator(ScM):
 
     @operation
     def sql(self, sql, *params):
-        """Execure raw SQL."""
+        """Execute raw SQL."""
         return Clause(SQL(sql, *params))
 
 
@@ -315,9 +315,15 @@ class Migrator(object):
 
     def __del_field__(self, model, field):
         """Delete field from model."""
-        del model._meta.fields[field.name]
-        del model._meta.columns[field.db_column]
+        # https://github.com/coleifer/peewee/pull/768
+        sorted_fields = [f for f in model._meta.sorted_fields if f is not field]
+        model._meta.remove_field(field.name)
         delattr(model, field.name)
+        model._meta.sorted_fields = sorted_fields
+        model._meta._sorted_field_list = pw._SortedFieldList()
+        for f in model._meta.sorted_fields:
+            model._meta._sorted_field_list.insert(field)
+
         if isinstance(field, pw.ForeignKeyField):
             delattr(field.rel_model, field.related_name)
             del field.rel_model._meta.reverse_rel[field.related_name]
@@ -376,6 +382,6 @@ class Migrator(object):
     def add_default(self, model, name, default):
         """Add default."""
         field = model._meta.fields[name]
-        field.default = default
+        model._meta.defaults[field] = field.default = default
         self.ops.append(self.migrator.apply_default(model._meta.db_table, name, field))
         return model

@@ -117,7 +117,7 @@ class BaseSignalModel(pw.BaseModel):
         return cls
 
 
-class Model(pw.Model, pw.with_metaclass(BaseSignalModel)):
+class Model(pw.Model, metaclass=BaseSignalModel):
 
     """Upgraded Model class. Supports serialization, signals and model.pk attribute."""
 
