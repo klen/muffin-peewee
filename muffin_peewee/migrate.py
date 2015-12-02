@@ -5,6 +5,7 @@ import logging
 from os import path as op, listdir as ls, makedirs as md
 from re import compile as re
 from shutil import copy
+import mock
 
 import peewee as pw
 from cached_property import cached_property
@@ -173,13 +174,16 @@ class Router(object):
                 scope = {}
                 exec_in(code, scope)
                 migrate = scope.get('migrate', lambda m: None)
-                migrate(migrator, self.database, app=self.app)
                 if fake:
+                    with mock.patch('peewee.Model.select'):
+                        with mock.patch('peewee.InsertQuery.execute'):
+                            migrate(migrator, self.database, app=self.app)
                     migrator.clean()
                     return migrator
 
                 self.app.logger.info('Start migration %s', name)
                 with self.database.transaction():
+                    migrate(migrator, self.database, app=self.app)
                     migrator.run()
                     self.model.create(name=name)
                 self.app.logger.info('Migrated %s', name)
@@ -187,6 +191,7 @@ class Router(object):
         except Exception as exc:
             self.database.rollback()
             self.app.logger.exception(exc)
+            self.app.logger.error('Migration failed: %s', name)
             raise
 
 
