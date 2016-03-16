@@ -10,5 +10,5 @@ app = muffin.Application(
     PLUGINS=(
         'muffin_peewee',
     ),
-    PEEWEE_CONNECTION='sqlite://example.db',
+    PEEWEE_CONNECTION='sqlite:///example.db',
 )
