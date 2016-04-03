@@ -1,4 +1,5 @@
 muffin
 
 peewee              == 2.7.4
+peewee-migrate      == 0.3.4
 mock                == 1.3.0

@@ -6,9 +6,9 @@ import peewee
 from muffin.plugins import BasePlugin
 from muffin.utils import Struct, MuffinException
 from playhouse.csv_utils import dump_csv, load_csv
+from peewee_migrate import Router
 
 from .models import Model, TModel
-from .migrate import Router, MigrateHistory
 from .mpeewee import connect, AIODatabase
 
 
@@ -111,25 +111,36 @@ class Plugin(BasePlugin):
             return
 
         # Setup migration engine
-        self.router = Router(self)
-        self.register(MigrateHistory)
+        self.router = Router(self.database, migrate_dir=self.cfg.migrations_path)
 
         # Register migration commands
         @self.app.manage.command
-        def migrate(name: str=None):
+        def migrate(name: str=None, fake: bool=False):
             """Run application's migrations.
 
             :param name: Choose a migration' name
+            :param fake: Run as fake. Update migration history and don't touch the database
             """
-            self.router.run(name)
+            self.router.run(name, fake=fake)
 
         @self.app.manage.command
-        def create(name: str):
+        def create(name: str, auto: bool=False):
             """Create a migration.
 
             :param name: Set name of migration [auto]
+            :param auto: Track changes and setup migrations automatically
             """
-            self.router.create(name)
+            if auto:
+                auto = self.models.values()
+            self.router.create(name, auto)
+
+        @self.app.manage.command
+        def rollback(name: str):
+            """Rollback a migration.
+
+            :param name: Migration name (actually it always should be a last one)
+            """
+            self.router.rollback(name)
 
         @self.app.manage.command
         def csv_dump(table: str, path: str='dump.csv'):

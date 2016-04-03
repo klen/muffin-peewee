@@ -98,12 +98,18 @@ Migrations
 
 Create migrations: ::
 
-    $ muffin example:app create [NAME]
+    $ muffin example:app create [NAME] [--auto]
 
 
 Run migrations: ::
 
-    $ muffin example:app migrate [NAME]
+    $ muffin example:app migrate [NAME] [--fake]
+
+
+Rollback migrations: ::
+
+    $ muffin example:app rollback NAME
+
 
 Load/Dump data to CSV
 ---------------------
