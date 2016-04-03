@@ -124,14 +124,14 @@ class Plugin(BasePlugin):
             self.router.run(name, fake=fake)
 
         @self.app.manage.command
-        def create(name: str, auto: bool=False):
+        def create(name: str='auto', auto: bool=False):
             """Create a migration.
 
             :param name: Set name of migration [auto]
             :param auto: Track changes and setup migrations automatically
             """
             if auto:
-                auto = self.models.values()
+                auto = list(self.models.values())
             self.router.create(name, auto)
 
         @self.app.manage.command
