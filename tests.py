@@ -9,7 +9,7 @@ def app(loop):
         'peewee', loop=loop,
 
         PLUGINS=['muffin_peewee'],
-        PEEWEE_CONNECTION='sqlite:///:memory:')
+        PEEWEE_CONNECTION='sqliteext:///:memory:')
 
 
 @pytest.fixture(scope='session')

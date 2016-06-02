@@ -5,7 +5,7 @@ import collections
 
 import peewee
 from muffin.utils import slocal
-from playhouse.db_url import parseresult_to_dict, urlparse, schemes
+from playhouse.db_url import parseresult_to_dict, urlparse, schemes, SqliteExtDatabase
 from playhouse.pool import PooledDatabase, PooledMySQLDatabase, PooledPostgresqlDatabase
 
 
@@ -147,6 +147,10 @@ class PooledAIODatabase:
 schemes['sqlite'] = type('AIOSqliteDatabase', (AIODatabase, peewee.SqliteDatabase), {})
 schemes['sqlite+pool'] = type(
     'AIOPooledSqliteDatabase', (PooledAIODatabase, PooledDatabase, schemes['sqlite']), {})
+
+schemes['sqliteext'] = type('AIOSqliteExtDatabase', (AIODatabase, SqliteExtDatabase), {})
+schemes['sqliteext+pool'] = type(
+    'AIOPooledSqliteExtDatabase', (PooledAIODatabase, PooledDatabase, schemes['sqliteext']), {})
 
 schemes['mysql'] = type('AIOMySQLDatabase', (AIODatabase, peewee.MySQLDatabase), {})
 schemes['mysql+pool'] = type(
