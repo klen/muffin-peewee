@@ -5,8 +5,8 @@ import collections
 
 import peewee
 from muffin.utils import slocal
-from playhouse.db_url import parseresult_to_dict, urlparse, schemes, SqliteExtDatabase, PostgresqlExtDatabase
-from playhouse.pool import PooledDatabase, PooledMySQLDatabase, PooledPostgresqlDatabase, PooledPostgresqlExtDatabase
+from playhouse.db_url import parseresult_to_dict, urlparse, schemes, SqliteExtDatabase
+from playhouse.pool import PooledDatabase, PooledMySQLDatabase, PooledPostgresqlDatabase
 
 
 peewee.SqliteDatabase.register_fields({'uuid': 'UUID'})
@@ -162,11 +162,22 @@ schemes['postgres+pool'] = schemes['postgresql+pool'] = type(
     'AIOPooledPostgresqlDatabase',
     (PooledAIODatabase, PooledPostgresqlDatabase, schemes['postgres']), {})
 
-schemes['postgresext'] = schemes['postgresqlext'] = type(
-    'AIOPostgresqlDatabase', (AIODatabase, PostgresqlExtDatabase), {})
-schemes['postgresext+pool'] = schemes['postgresqlext+pool'] = type(
-    'AIOPooledPostgresqlDatabase',
-    (PooledAIODatabase, PooledPostgresqlExtDatabase, schemes['postgresext']), {})
+try:
+    from playhouse.db_url import PostgresqlExtDatabase
+except ImportError:
+    pass
+else:
+    schemes['postgresext'] = schemes['postgresqlext'] = type(
+        'AIOPostgresqlDatabase', (AIODatabase, PostgresqlExtDatabase), {})
+
+try:
+    from playhouse.pool import PooledPostgresqlExtDatabase
+except ImportError:
+    pass
+else:
+    schemes['postgresext+pool'] = schemes['postgresqlext+pool'] = type(
+        'AIOPooledPostgresqlDatabase',
+        (PooledAIODatabase, PooledPostgresqlExtDatabase, schemes['postgresext']), {})
 
 def connect(url, **connect_params):
     """Support async databases."""
