@@ -43,7 +43,7 @@ class JSONField(Field):
 
     def coerce(self, value):
         """Parse value from database."""
-        if self.db_field == 'text':
+        if self.db_field == 'text' and isinstance(value, str):
             return self.loads(value)
         return value
 
