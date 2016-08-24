@@ -2,9 +2,9 @@
 
 import asyncio
 import collections
+import threading
 
 import peewee
-from muffin.utils import slocal
 from playhouse.db_url import schemes, SqliteExtDatabase, connect # noqa
 from playhouse.pool import PooledDatabase, PooledMySQLDatabase, PooledPostgresqlDatabase
 
@@ -21,7 +21,10 @@ CONN_PARAMS = {
 }
 
 
-class _ConnectionTaskLocal(slocal):
+LOCAL = threading.local()
+
+
+class ConnectionLocal:
 
     """Keep connection info.
 
@@ -31,10 +34,13 @@ class _ConnectionTaskLocal(slocal):
     """
 
     def __getattribute__(self, name):
-        try:
-            return super(_ConnectionTaskLocal, self).__getattribute__(name)
-        except AttributeError:
+        """Get attribute from current task's space."""
+        if name in ('__setattr__', '__getattr__', '__delattr__', '__current__'):
+            return object.__getattribute__(self, name)
 
+        try:
+            return getattr(self.__current__, name)
+        except AttributeError:
             if name not in CONN_PARAMS:
                 raise
 
@@ -42,6 +48,30 @@ class _ConnectionTaskLocal(slocal):
             setattr(self, name, default)
 
             return default
+
+    def __setattr__(self, name, value):
+        """Set attribute to current space."""
+        self.__current__.__dict__[name] = value
+
+    def __delattr__(self, name):
+        """Delete attribute from current space."""
+        delattr(self.__current__, name)
+
+    @property
+    def __current__(self):
+        """Create namespace in current task."""
+        loop = asyncio.get_event_loop()
+        if not loop or not loop.is_running():
+            return LOCAL
+
+        task = asyncio.Task.current_task(loop=loop)
+        if not task:
+            raise RuntimeError('No task is currently running')
+
+        if not hasattr(task, '_locals'):
+            task._locals = lambda: None
+
+        return task._locals
 
 
 class _ContextManager:
@@ -85,7 +115,7 @@ class AIODatabase:
 
         # FIX: SQLITE in memory database
         if not self.database == ':memory:':
-            self._local = _ConnectionTaskLocal(loop=loop)
+            self._local = ConnectionLocal()
 
     @asyncio.coroutine
     def async_connect(self):
