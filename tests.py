@@ -1,7 +1,6 @@
 import muffin
 import peewee
 import pytest
-import asyncio
 
 
 @pytest.fixture(scope='session')
@@ -9,7 +8,9 @@ def app(loop):
     return muffin.Application(
         'peewee', loop=loop,
         PLUGINS=['muffin_peewee'],
-        PEEWEE_CONNECTION='sqliteext:///tests.sqlite')
+        #  PEEWEE_CONNECTION='sqliteext:///:memory:'
+        PEEWEE_CONNECTION='sqliteext:///tests.sqlite'
+    )
 
 
 @pytest.fixture(scope='session')

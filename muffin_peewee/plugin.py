@@ -49,6 +49,7 @@ class _ContextManager:
 
     def __init__(self, db):
         self._db = db
+        self.connection = None
         self._db.push_execution_context(self)
 
     def __enter__(self):
@@ -62,7 +63,8 @@ class _ContextManager:
 
         finally:
             self._db.pop_execution_context()
-            self._db._close(self.connection)
+            if self.connection:
+                self._db._close(self.connection)
             self._db = None
 
 
