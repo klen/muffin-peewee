@@ -1,15 +1,15 @@
 import muffin
 import peewee
 import pytest
+import asyncio
 
 
 @pytest.fixture(scope='session')
 def app(loop):
     return muffin.Application(
         'peewee', loop=loop,
-
         PLUGINS=['muffin_peewee'],
-        PEEWEE_CONNECTION='sqliteext:///:memory:')
+        PEEWEE_CONNECTION='sqliteext:///tests.sqlite')
 
 
 @pytest.fixture(scope='session')
@@ -21,8 +21,20 @@ def model(app, loop):
         data = peewee.CharField()
         json = JSONField(default={})
 
-    Test.create_table()
+    try:
+        Test.create_table()
+    except peewee.OperationalError:
+        pass
+
     return Test
+
+
+@pytest.yield_fixture(autouse=True)
+def transaction(app):
+    """Clean changes after test."""
+    with app.ps.peewee.database.atomic() as trans:
+        yield True
+        trans.rollback()
 
 
 def test_peewee(app, model):
@@ -86,15 +98,6 @@ def test_migrations(app, tmpdir):
     assert '002_auto.py' in path
 
 
-def test_connect(app, model):
-    from muffin_peewee.plugin import connect
-    from muffin_peewee.mpeewee import schemes
-
-    db = connect('postgres+pool://name:pass@localhost:5432/db')
-    assert db
-    assert isinstance(db, schemes['postgres+pool'])
-
-
 def test_uuid(app):
     """ Test for UUID in Sqlite. """
     @app.ps.peewee.register
@@ -123,7 +126,6 @@ def test_async_peewee(app, model):
 
     with (yield from app.ps.peewee.manage()):
         assert app.ps.peewee.database.obj.execution_context_depth() == 1
-        model.create_table()
         model.select().execute()
 
     assert app.ps.peewee.database.obj.execution_context_depth() == 0

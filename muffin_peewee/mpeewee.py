@@ -5,7 +5,7 @@ import collections
 
 import peewee
 from muffin.utils import slocal
-from playhouse.db_url import parseresult_to_dict, urlparse, schemes, SqliteExtDatabase
+from playhouse.db_url import schemes, SqliteExtDatabase, connect # noqa
 from playhouse.pool import PooledDatabase, PooledMySQLDatabase, PooledPostgresqlDatabase
 
 
@@ -78,14 +78,14 @@ class AIODatabase:
 
     _aioconn_lock = None
 
-    def async_init(self, loop):
+    def async_init(self, loop=None):
         """Used when application is starting."""
-        self._loop = loop
+        self._loop = loop or asyncio.get_event_loop()
         self._aioconn_lock = asyncio.Lock(loop=loop)
 
         # FIX: SQLITE in memory database
         if not self.database == ':memory:':
-            self._Database__local = _ConnectionTaskLocal(loop=loop)
+            self._local = _ConnectionTaskLocal(loop=loop)
 
     @asyncio.coroutine
     def async_connect(self):
@@ -95,7 +95,7 @@ class AIODatabase:
 
         with (yield from self._aioconn_lock):
             self.connect()
-        return self._Database__local.conn
+        return self._local.conn
 
     @asyncio.coroutine
     def async_close(self):
@@ -134,7 +134,7 @@ class PooledAIODatabase:
                 self._waiters.remove(fut)
 
         self.connect()
-        return self._Database__local.conn
+        return self._local.conn
 
     def _close(self, *args, **kwargs):
         for waiter in self._waiters:
@@ -161,19 +161,3 @@ schemes['postgres'] = schemes['postgresql'] = type(
 schemes['postgres+pool'] = schemes['postgresql+pool'] = type(
     'AIOPooledPostgresqlDatabase',
     (PooledAIODatabase, PooledPostgresqlDatabase, schemes['postgres']), {})
-
-
-def connect(url, **connect_params):
-    """Support async databases."""
-    parsed = urlparse(url)
-    connect_kwargs = parseresult_to_dict(parsed)
-    connect_kwargs.update(connect_params)
-    database_class = schemes.get(parsed.scheme)
-
-    if database_class is None:
-        if database_class in schemes:
-            raise RuntimeError('Attempted to use "%s" but a required library '
-                               'could not be imported.' % parsed.scheme)
-        raise RuntimeError('Unrecognized or unsupported scheme: "%s".' % parsed.scheme)
-
-    return database_class(**connect_kwargs)

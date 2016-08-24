@@ -1,4 +1,4 @@
 muffin
 
-peewee              >= 2.8.1
-peewee-migrate      >= 0.4.8
+peewee              >= 2.8.2
+peewee-migrate      >= 0.5.11

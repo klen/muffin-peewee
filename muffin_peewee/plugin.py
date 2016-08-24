@@ -100,8 +100,7 @@ class Plugin(BasePlugin):
         super().setup(app)
 
         # Setup Database
-        self.database.initialize(connect(
-            self.cfg.connection, **self.cfg.connection_params))
+        self.database.initialize(connect(self.cfg.connection, **self.cfg.connection_params))
 
         # Fix SQLite in-memory database
         if self.database.database == ':memory:':

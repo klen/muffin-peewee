@@ -46,3 +46,4 @@ docs/_build
 /example.db
 /_
 /.cache
+/*.sqlite
