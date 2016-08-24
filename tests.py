@@ -8,8 +8,8 @@ def app(loop):
     return muffin.Application(
         'peewee', loop=loop,
         PLUGINS=['muffin_peewee'],
-        #  PEEWEE_CONNECTION='sqliteext:///:memory:'
-        PEEWEE_CONNECTION='sqliteext:///tests.sqlite'
+        PEEWEE_CONNECTION='sqliteext:///:memory:'
+        #  PEEWEE_CONNECTION='sqliteext:///tests.sqlite'
     )
 
 
@@ -127,6 +127,7 @@ def test_async_peewee(app, model):
 
     with (yield from app.ps.peewee.manage()):
         assert app.ps.peewee.database.obj.execution_context_depth() == 1
+        model.create_table()
         model.select().execute()
 
     assert app.ps.peewee.database.obj.execution_context_depth() == 0
