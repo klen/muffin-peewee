@@ -112,7 +112,10 @@ class AIODatabase:
         """Used when application is starting."""
         self._loop = loop or asyncio.get_event_loop()
         self._aioconn_lock = asyncio.Lock(loop=loop)
-        self._local = ConnectionLocal()
+
+        # FIX: SQLITE in memory database
+        if not self.database == ':memory:':
+            self._local = ConnectionLocal()
 
     @asyncio.coroutine
     def async_connect(self):

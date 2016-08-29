@@ -33,9 +33,12 @@ def model(app, loop):
 @pytest.yield_fixture(autouse=True)
 def transaction(app):
     """Clean changes after test."""
-    with app.ps.peewee.database.atomic() as trans:
-        yield True
-        trans.rollback()
+    try:
+        with app.ps.peewee.database.atomic() as trans:
+                yield True
+                trans.rollback()
+    except Exception:
+        pass
 
 
 def test_peewee(app, model):
