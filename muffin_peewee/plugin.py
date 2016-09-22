@@ -90,12 +90,12 @@ class Plugin(BasePlugin):
     Model = Model
     TModel = TModel
 
-    def __init__(self, **options):
+    def __init__(self, app=None, **options):
         """Initialize the plugin."""
-        super().__init__(**options)
-
         self.database = peewee.Proxy()
         self.models = Struct()
+
+        super().__init__(app, **options)
 
     def setup(self, app):
         """Initialize the application."""
