@@ -3,11 +3,14 @@
 import asyncio
 import collections
 import threading
+import logging
 
 import peewee
 from playhouse.db_url import schemes, SqliteExtDatabase, connect # noqa
 from playhouse.pool import PooledDatabase, PooledMySQLDatabase, PooledPostgresqlDatabase
 
+
+logger = logging.getLogger('peewee')
 
 peewee.SqliteDatabase.register_fields({'uuid': 'UUID'})
 
@@ -40,6 +43,7 @@ class ConnectionLocal:
 
         try:
             return getattr(self.__current__, name)
+
         except AttributeError:
             if name not in CONN_PARAMS:
                 raise
@@ -59,7 +63,7 @@ class ConnectionLocal:
 
     @property
     def __current__(self):
-        """Create namespace in current task."""
+        """Create namespace inside running task."""
         loop = asyncio.get_event_loop()
         if not loop or not loop.is_running():
             return LOCAL
@@ -150,7 +154,7 @@ class PooledAIODatabase:
 
     @asyncio.coroutine
     def async_connect(self):
-        """Async connection."""
+        """Wait for connection from pool."""
         if self._waiters is None:
             raise Exception('Error, database not properly initialized before async connection')
 
@@ -159,6 +163,7 @@ class PooledAIODatabase:
             self._waiters.append(fut)
 
             try:
+                logger.debug('Wait for connection.')
                 yield from fut
             finally:
                 self._waiters.remove(fut)
@@ -167,27 +172,36 @@ class PooledAIODatabase:
         return self._local.conn
 
     def _close(self, *args, **kwargs):
+        """Release a waiter."""
+        super(PooledAIODatabase, self)._close(*args, **kwargs)
         for waiter in self._waiters:
             if not waiter.done():
+                logger.debug('Leave a waiter.')
                 waiter.set_result(True)
                 break
-        super(PooledAIODatabase, self)._close(*args, **kwargs)
 
 
-schemes['sqlite'] = type('AIOSqliteDatabase', (AIODatabase, peewee.SqliteDatabase), {})
+schemes['sqlite'] = type(
+    'AIOSqliteDatabase', (AIODatabase, peewee.SqliteDatabase), {})
+
 schemes['sqlite+pool'] = type(
     'AIOPooledSqliteDatabase', (PooledAIODatabase, PooledDatabase, schemes['sqlite']), {})
 
-schemes['sqliteext'] = type('AIOSqliteExtDatabase', (AIODatabase, SqliteExtDatabase), {})
+schemes['sqliteext'] = type(
+    'AIOSqliteExtDatabase', (AIODatabase, SqliteExtDatabase), {})
+
 schemes['sqliteext+pool'] = type(
     'AIOPooledSqliteExtDatabase', (PooledAIODatabase, PooledDatabase, schemes['sqliteext']), {})
 
-schemes['mysql'] = type('AIOMySQLDatabase', (AIODatabase, peewee.MySQLDatabase), {})
+schemes['mysql'] = type(
+    'AIOMySQLDatabase', (AIODatabase, peewee.MySQLDatabase), {})
+
 schemes['mysql+pool'] = type(
     'AIOPooledMySQLDatabase', (PooledAIODatabase, PooledMySQLDatabase, schemes['mysql']), {})
 
 schemes['postgres'] = schemes['postgresql'] = type(
     'AIOPostgresqlDatabase', (AIODatabase, peewee.PostgresqlDatabase), {})
+
 schemes['postgres+pool'] = schemes['postgresql+pool'] = type(
     'AIOPooledPostgresqlDatabase',
     (PooledAIODatabase, PooledPostgresqlDatabase, schemes['postgres']), {})
