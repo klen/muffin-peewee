@@ -1,4 +1,4 @@
 -r requirements.txt
 
 pytest
-webtest
+webtest==2.0.23
