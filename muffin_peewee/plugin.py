@@ -146,7 +146,11 @@ class Plugin(BasePlugin):
         @self.app.manage.command
         def list():
             """List migrations."""
-            self.router.list()
+            self.app.logger.warn('Migrations are done:')
+            self.app.logger.warn('\n'.join(self.router.done))
+            self.app.logger.warn('')
+            self.app.logger.warn('Migrations are undone:')
+            self.app.logger.warn('\n'.join(self.router.diff))
 
         @self.app.manage.command
         def merge():
