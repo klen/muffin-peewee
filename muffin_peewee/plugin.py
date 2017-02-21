@@ -125,6 +125,14 @@ class Plugin(BasePlugin):
             self.router.run(name, fake=fake)
 
         @self.app.manage.command
+        def rollback(name: str):
+            """Rollback a migration.
+
+            :param name: Migration name (actually it always should be a last one)
+            """
+            self.router.rollback(name)
+
+        @self.app.manage.command
         def create(name: str='auto', auto: bool=False):
             """Create a migration.
 
@@ -136,12 +144,14 @@ class Plugin(BasePlugin):
             self.router.create(name, auto)
 
         @self.app.manage.command
-        def rollback(name: str):
-            """Rollback a migration.
+        def list():
+            """List migrations."""
+            self.router.list()
 
-            :param name: Migration name (actually it always should be a last one)
-            """
-            self.router.rollback(name)
+        @self.app.manage.command
+        def merge():
+            """Merge migrations into one."""
+            self.router.merge()
 
         @self.app.manage.command
         def csv_dump(table: str, path: str='dump.csv'):

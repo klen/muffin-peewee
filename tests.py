@@ -87,8 +87,8 @@ def test_migrations(app, tmpdir):
     assert not router.diff
 
     # Create migration
-    path = router.create('test')
-    assert '001_test.py' in path
+    name = router.create('test')
+    assert '001_test' == name
     assert router.todo
     assert not router.done
     assert router.diff
@@ -98,8 +98,8 @@ def test_migrations(app, tmpdir):
     assert router.done
     assert not router.diff
 
-    path = router.create()
-    assert '002_auto.py' in path
+    name = router.create()
+    assert '002_auto' == name
 
 
 def test_uuid(app):
