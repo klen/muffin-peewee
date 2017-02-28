@@ -64,7 +64,7 @@ class _ContextManager:
         finally:
             self._db.pop_execution_context()
             if self.connection:
-                self._db._close(self.connection)
+                self._db._close(self.connection)  # noqa
             self._db = None
 
 
@@ -94,10 +94,11 @@ class Plugin(BasePlugin):
         """Initialize the plugin."""
         self.database = peewee.Proxy()
         self.models = Struct()
+        self.router = None
 
         super().__init__(app, **options)
 
-    def setup(self, app):
+    def setup(self, app):  # noqa
         """Initialize the application."""
         super().setup(app)
 
@@ -115,8 +116,7 @@ class Plugin(BasePlugin):
         self.router = Router(self.database, migrate_dir=self.cfg.migrations_path)
 
         # Register migration commands
-        @self.app.manage.command
-        def migrate(name: str=None, fake: bool=False):
+        def pw_migrate(name: str=None, fake: bool=False):
             """Run application's migrations.
 
             :param name: Choose a migration' name
@@ -124,16 +124,18 @@ class Plugin(BasePlugin):
             """
             self.router.run(name, fake=fake)
 
-        @self.app.manage.command
-        def rollback(name: str):
+        self.app.manage.command(pw_migrate)
+
+        def pw_rollback(name: str):
             """Rollback a migration.
 
             :param name: Migration name (actually it always should be a last one)
             """
             self.router.rollback(name)
 
-        @self.app.manage.command
-        def create(name: str='auto', auto: bool=False):
+        self.app.manage.command(pw_rollback)
+
+        def pw_create(name: str='auto', auto: bool=False):
             """Create a migration.
 
             :param name: Set name of migration [auto]
@@ -143,8 +145,9 @@ class Plugin(BasePlugin):
                 auto = list(self.models.values())
             self.router.create(name, auto)
 
-        @self.app.manage.command
-        def list():
+        self.app.manage.command(pw_create)
+
+        def pw_list():
             """List migrations."""
             self.router.logger.info('Migrations are done:')
             self.router.logger.info('\n'.join(self.router.done))
@@ -152,13 +155,16 @@ class Plugin(BasePlugin):
             self.router.logger.info('Migrations are undone:')
             self.router.logger.info('\n'.join(self.router.diff))
 
+        self.app.manage.command(pw_list)
+
         @self.app.manage.command
-        def merge():
+        def pw_merge():
             """Merge migrations into one."""
             self.router.merge()
 
-        @self.app.manage.command
-        def csv_dump(table: str, path: str='dump.csv'):
+        self.app.manage.command(pw_merge)
+
+        def pw_dump(table: str, path: str='dump.csv'):
             """Dump DB table to CSV.
 
             :param table: Table name for dump data
@@ -172,8 +178,9 @@ class Plugin(BasePlugin):
                 dump_csv(model.select().order_by(model._meta.primary_key), fh)
                 self.app.logger.info('Dumped to %s' % path)
 
-        @self.app.manage.command
-        def csv_load(table: str, path: str='dump.csv', pk_in_csv: bool=False):
+        self.app.manage.command(pw_dump)
+
+        def pw_load(table: str, path: str='dump.csv', pk_in_csv: bool=False):
             """Load CSV to DB table.
 
             :param table: Table name for load data
@@ -186,6 +193,8 @@ class Plugin(BasePlugin):
 
             load_csv(model, path)
             self.app.logger.info('Loaded from %s' % path)
+
+        self.app.manage.command(pw_load)
 
     def start(self, app):
         """Register connection's middleware and prepare self database."""
@@ -208,7 +217,7 @@ class Plugin(BasePlugin):
     def manage(self):
         """Manage a database connection."""
         cm = _ContextManager(self.database)
-        if (self.database.obj, AIODatabase):
+        if isinstance(self.database.obj, AIODatabase):
             cm.connection = yield from self.database.async_connect()
 
         else:
@@ -243,3 +252,5 @@ class Plugin(BasePlugin):
 #        return (
 #            yield from self.app.loop.run_in_executor(
 #                self.threadpool, iteration, self.database,  *args))
+
+#  pylama:ignore=W0212
