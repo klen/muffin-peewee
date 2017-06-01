@@ -205,3 +205,16 @@ schemes['postgres'] = schemes['postgresql'] = type(
 schemes['postgres+pool'] = schemes['postgresql+pool'] = type(
     'AIOPooledPostgresqlDatabase',
     (PooledAIODatabase, PooledPostgresqlDatabase, schemes['postgres']), {})
+
+try:
+    from playhouse.db_url import PostgresqlExtDatabase, PooledPostgresqlExtDatabase
+
+    schemes['postgresext'] = schemes['postgresqlext'] = type(
+        'AIOPostgresqlExtDatabase', (AIODatabase, PostgresqlExtDatabase), {})
+
+    schemes['postgresext+pool'] = schemes['postgresqlext+pool'] = type(
+        'AIOPooledPostgresqlExtDatabase',
+        (PooledAIODatabase, PooledPostgresqlExtDatabase, schemes['postgres']), {})
+
+except ImportError:
+    pass
