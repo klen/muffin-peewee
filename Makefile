@@ -1,4 +1,4 @@
-VIRTUAL_ENV=$(shell echo "$${VIRTUAL_ENV:-'.env'}")
+VIRTUAL_ENV ?= env
 
 all: $(VIRTUAL_ENV)
 
@@ -65,7 +65,7 @@ upload: clean
 
 $(VIRTUAL_ENV): requirements.txt
 	@[ -d $(VIRTUAL_ENV) ] || virtualenv --no-site-packages $(VIRTUAL_ENV) --python=python3.4
-	@$(VIRTUAL_ENV)/bin/pip install -r requirements.txt
+	@$(VIRTUAL_ENV)/bin/pip install -r requirements.txt --no-cache
 	@touch $(VIRTUAL_ENV)
 
 $(VIRTUAL_ENV)/bin/py.test: $(VIRTUAL_ENV) requirements-tests.txt

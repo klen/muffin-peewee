@@ -47,3 +47,4 @@ docs/_build
 /_
 /.cache
 /*.sqlite
+/.pytest_cache
