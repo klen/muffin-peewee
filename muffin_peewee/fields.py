@@ -6,8 +6,8 @@ from peewee import Field, PostgresqlDatabase, Proxy
 
 try:
     from playhouse.postgres_ext import Json, JsonLookup
-    PostgresqlDatabase.register_fields({'json': 'json'})
-except:
+    PostgresqlDatabase.field_types['JSON'] = 'JSON'
+except:  # noqa
     Json = JsonLookup = None
 
 
@@ -22,18 +22,20 @@ class JSONField(Field):
         super(JSONField, self).__init__(*args, **kwargs)
 
     @cached_property
-    def db_field(self):
+    def field_type(self):
         """Return database field type."""
-        database = self.get_database()
+        if not self.model:
+            return 'JSON'
+        database = self.model._meta.database
         if isinstance(database, Proxy):
             database = database.obj
         if Json and isinstance(database, PostgresqlDatabase):
-            return 'json'
-        return 'text'
+            return 'JSON'
+        return 'TEXT'
 
     def db_value(self, value):
         """Convert python value to database."""
-        if self.db_field == 'text':
+        if self.field_type == 'TEXT':
             return self.dumps(value)
 
         if not isinstance(value, Json):
@@ -41,9 +43,9 @@ class JSONField(Field):
 
         return value
 
-    def coerce(self, value):
+    def python_value(self, value):
         """Parse value from database."""
-        if self.db_field == 'text' and isinstance(value, str):
+        if self.field_type == 'TEXT' and isinstance(value, str):
             return self.loads(value)
         return value
 

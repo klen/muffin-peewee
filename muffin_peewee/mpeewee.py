@@ -5,14 +5,14 @@ import collections
 import threading
 import logging
 
-import peewee
+import peewee as pw
 from playhouse.db_url import schemes, SqliteExtDatabase, connect # noqa
 from playhouse.pool import PooledDatabase, PooledMySQLDatabase, PooledPostgresqlDatabase
 
 
 logger = logging.getLogger('peewee')
 
-peewee.SqliteDatabase.register_fields({'uuid': 'UUID'})
+pw.SqliteDatabase.field_types['UUID'] = 'UUID'
 
 
 CONN_PARAMS = {
@@ -25,9 +25,11 @@ CONN_PARAMS = {
 
 
 LOCAL = threading.local()
+METHODS = set([
+    '__setattr__', '__getattr__', '__delattr__', '__current__', 'reset', 'set_connection'])
 
 
-class ConnectionLocal:
+class ConnectionLocal(pw._ConnectionState):
 
     """Keep connection info.
 
@@ -38,7 +40,7 @@ class ConnectionLocal:
 
     def __getattribute__(self, name):
         """Get attribute from current task's space."""
-        if name in ('__setattr__', '__getattr__', '__delattr__', '__current__'):
+        if name in METHODS:
             return object.__getattribute__(self, name)
 
         try:
@@ -97,7 +99,7 @@ class _ContextManager:
     def __exit__(self, exc_type, exc, tb):
         try:
             self._db.commit()
-        except peewee.DatabaseError:
+        except pw.DatabaseError:
             self._db.rollback()
 
         finally:
@@ -113,13 +115,13 @@ class AIODatabase:
     _aioconn_lock = None
 
     def async_init(self, loop=None):
-        """Used when application is starting."""
+        """Use when application is starting."""
         self._loop = loop or asyncio.get_event_loop()
         self._aioconn_lock = asyncio.Lock(loop=loop)
 
         # FIX: SQLITE in memory database
         if not self.database == ':memory:':
-            self._local = ConnectionLocal()
+            self._state = ConnectionLocal()
 
     @asyncio.coroutine
     def async_connect(self):
@@ -128,8 +130,8 @@ class AIODatabase:
             raise Exception('Error, database not properly initialized before async connection')
 
         with (yield from self._aioconn_lock):
-            self.connect()
-        return self._local.conn
+            self.connect(True)
+        return self._state.conn
 
     @asyncio.coroutine
     def async_close(self):
@@ -169,7 +171,7 @@ class PooledAIODatabase:
                 self._waiters.remove(fut)
 
         self.connect()
-        return self._local.conn
+        return self._state.conn
 
     def _close(self, *args, **kwargs):
         """Release a waiter."""
@@ -182,7 +184,7 @@ class PooledAIODatabase:
 
 
 schemes['sqlite'] = type(
-    'AIOSqliteDatabase', (AIODatabase, peewee.SqliteDatabase), {})
+    'AIOSqliteDatabase', (AIODatabase, pw.SqliteDatabase), {})
 
 schemes['sqlite+pool'] = type(
     'AIOPooledSqliteDatabase', (PooledAIODatabase, PooledDatabase, schemes['sqlite']), {})
@@ -194,13 +196,13 @@ schemes['sqliteext+pool'] = type(
     'AIOPooledSqliteExtDatabase', (PooledAIODatabase, PooledDatabase, schemes['sqliteext']), {})
 
 schemes['mysql'] = type(
-    'AIOMySQLDatabase', (AIODatabase, peewee.MySQLDatabase), {})
+    'AIOMySQLDatabase', (AIODatabase, pw.MySQLDatabase), {})
 
 schemes['mysql+pool'] = type(
     'AIOPooledMySQLDatabase', (PooledAIODatabase, PooledMySQLDatabase, schemes['mysql']), {})
 
 schemes['postgres'] = schemes['postgresql'] = type(
-    'AIOPostgresqlDatabase', (AIODatabase, peewee.PostgresqlDatabase), {})
+    'AIOPostgresqlDatabase', (AIODatabase, pw.PostgresqlDatabase), {})
 
 schemes['postgres+pool'] = schemes['postgresql+pool'] = type(
     'AIOPooledPostgresqlDatabase',

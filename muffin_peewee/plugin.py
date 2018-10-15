@@ -2,10 +2,9 @@
 
 import asyncio
 
-import peewee
+import peewee as pw
 from muffin.plugins import BasePlugin
-from muffin.utils import Struct, MuffinException
-from playhouse.csv_utils import dump_csv, load_csv
+from muffin.utils import Struct
 from peewee_migrate import Router
 
 from .models import Model, TModel
@@ -26,7 +25,7 @@ def peewee_middleware_factory(app, handler):
             database.commit()
             return response
 
-        except peewee.DatabaseError:
+        except pw.DatabaseError:
             database.rollback()
             raise
 
@@ -48,24 +47,19 @@ class _ContextManager:
     """
 
     def __init__(self, db):
-        self._db = db
+        self.transaction = pw._transaction(db)
         self.connection = None
-        self._db.push_execution_context(self)
 
     def __enter__(self):
-        return None
+        self.transaction.__enter__()
+        return self
 
-    def __exit__(self, exc_type, exc, tb):
+    def __exit__(self, *args):
         try:
-            self._db.commit()
-        except peewee.DatabaseError:
-            self._db.rollback()
-
+            self.transaction.__exit__(*args)
         finally:
-            self._db.pop_execution_context()
             if self.connection:
-                self._db._close(self.connection)  # noqa
-            self._db = None
+                self.connection.close()
 
 
 class Plugin(BasePlugin):
@@ -92,7 +86,7 @@ class Plugin(BasePlugin):
 
     def __init__(self, app=None, **options):
         """Initialize the plugin."""
-        self.database = peewee.Proxy()
+        self.database = pw.Proxy()
         self.models = Struct()
         self.router = None
 
@@ -126,11 +120,13 @@ class Plugin(BasePlugin):
 
         self.app.manage.command(pw_migrate)
 
-        def pw_rollback(name: str):
+        def pw_rollback(name: str=None):
             """Rollback a migration.
 
             :param name: Migration name (actually it always should be a last one)
             """
+            if not name:
+                name = self.router.done[-1]
             self.router.rollback(name)
 
         self.app.manage.command(pw_rollback)
@@ -164,38 +160,6 @@ class Plugin(BasePlugin):
 
         self.app.manage.command(pw_merge)
 
-        def pw_dump(table: str, path: str='dump.csv'):
-            """Dump DB table to CSV.
-
-            :param table: Table name for dump data
-            :param path: Path to file where data will be dumped
-            """
-            model = self.models.get(table)
-            if model is None:
-                raise MuffinException('Unknown db table: %s' % table)
-
-            with open(path, 'w') as fh:
-                dump_csv(model.select().order_by(model._meta.primary_key), fh)
-                self.app.logger.info('Dumped to %s' % path)
-
-        self.app.manage.command(pw_dump)
-
-        def pw_load(table: str, path: str='dump.csv', pk_in_csv: bool=False):
-            """Load CSV to DB table.
-
-            :param table: Table name for load data
-            :param path: Path to file which from data will be loaded
-            :param pk_in_csv: Primary keys stored in CSV
-            """
-            model = self.models.get(table)
-            if model is None:
-                raise MuffinException('Unknown db table: %s' % table)
-
-            load_csv(model, path)
-            self.app.logger.info('Loaded from %s' % path)
-
-        self.app.manage.command(pw_load)
-
     def start(self, app):
         """Register connection's middleware and prepare self database."""
         self.database.async_init(app.loop)
@@ -209,7 +173,7 @@ class Plugin(BasePlugin):
 
     def register(self, model):
         """Register a model in self."""
-        self.models[model._meta.db_table] = model
+        self.models[model._meta.table_name] = model
         model._meta.database = self.database
         return model
 
@@ -224,33 +188,3 @@ class Plugin(BasePlugin):
             cm.connection = self.database.connect()
 
         return cm
-
-
-#    def query(self, query):
-#        """ Async query. """
-#        if isinstance(query, pw.SelectQuery):
-#            return self.run(lambda: list(query))
-#        return self.run(query.execute)
-#
-#    @asyncio.coroutine
-#    def run(self, function, *args, **kwargs):
-#        """ Run sync code asyncronously. """
-#        if kwargs:
-#            function = partial(function, **kwargs)
-#
-#        def iteration(database, *args):
-#            database.connect()
-#            try:
-#                with database.transaction():
-#                    return function(*args)
-#            except pw.PeeweeException:
-#                database.rollback()
-#                raise
-#            finally:
-#                database.commit()
-#
-#        return (
-#            yield from self.app.loop.run_in_executor(
-#                self.threadpool, iteration, self.database,  *args))
-
-#  pylama:ignore=W0212
