@@ -135,7 +135,6 @@ async def test_async_peewee(model):
 
     with (await app.ps.peewee.manage()):
         assert app.ps.peewee.database.obj.execution_context_depth() == 1
-        model.create_table()
         model.select().execute()
 
     assert app.ps.peewee.database.obj.execution_context_depth() == 0
