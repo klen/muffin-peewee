@@ -4,17 +4,16 @@ import pytest
 
 
 @pytest.fixture(scope='session')
-def app(loop):
+def app():
     return muffin.Application(
-        'peewee', loop=loop,
+        'peewee',
         PLUGINS=['muffin_peewee'],
         PEEWEE_CONNECTION='sqliteext:///:memory:'
-        #  PEEWEE_CONNECTION='sqliteext:///tests.sqlite'
     )
 
 
 @pytest.fixture(scope='session')
-def model(app, loop):
+def model(app):
     from muffin_peewee.fields import JSONField
 
     @app.ps.peewee.register
@@ -116,19 +115,25 @@ def test_uuid(app):
     assert M.get() == m
 
 
-@pytest.mark.async
-def test_async_peewee(app, model):
-    conn = yield from app.ps.peewee.database.async_connect()
+async def test_async_peewee(model):
+    app = muffin.Application(
+        'peewee',
+        PLUGINS=['muffin_peewee'],
+        PEEWEE_CONNECTION='sqliteext:///:memory:'
+    )
+    app.ps.peewee.startup(app)
+
+    conn = await app.ps.peewee.database.async_connect()
     assert conn
     assert conn.cursor()
-    yield from app.ps.peewee.database.async_close()
+    await app.ps.peewee.database.async_close()
 
     with pytest.raises(Exception):
         conn.cursor()
 
     assert app.ps.peewee.database.obj.execution_context_depth() == 0
 
-    with (yield from app.ps.peewee.manage()):
+    with (await app.ps.peewee.manage()):
         assert app.ps.peewee.database.obj.execution_context_depth() == 1
         model.create_table()
         model.select().execute()

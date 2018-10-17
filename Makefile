@@ -81,7 +81,7 @@ test: $(VIRTUAL_ENV)/bin/py.test
 t: test
 
 example.db: $(VIRTUAL_ENV)
-	@$(VIRTUAL_ENV)/bin/muffin example migrate
+	@$(VIRTUAL_ENV)/bin/muffin example pw_migrate
 
 .PHONY: run
 run: $(VIRTUAL_ENV) example.db

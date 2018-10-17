@@ -1,7 +1,5 @@
 """Implement the plugin."""
 
-import asyncio
-
 import peewee
 from muffin.plugins import BasePlugin
 from muffin.utils import Struct, MuffinException
@@ -10,31 +8,6 @@ from peewee_migrate import Router
 
 from .models import Model, TModel
 from .mpeewee import connect, AIODatabase
-
-
-@asyncio.coroutine
-def peewee_middleware_factory(app, handler):
-    """Manage a database connection while request is processing."""
-    database = app.ps.peewee.database
-
-    @asyncio.coroutine
-    def middleware(request):
-        yield from database.async_connect()
-
-        try:
-            response = yield from handler(request)
-            database.commit()
-            return response
-
-        except peewee.DatabaseError:
-            database.rollback()
-            raise
-
-        finally:
-            if not database.is_closed():
-                yield from database.async_close()
-
-    return middleware
 
 
 class _ContextManager:
@@ -196,16 +169,34 @@ class Plugin(BasePlugin):
 
         self.app.manage.command(pw_load)
 
-    def start(self, app):
+    def startup(self, app):
         """Register connection's middleware and prepare self database."""
         self.database.async_init(app.loop)
         if not self.cfg.connection_manual:
-            app.middlewares.insert(0, peewee_middleware_factory)
+            app.middlewares.insert(0, self._middleware)
 
-    def finish(self, app):
+    def cleanup(self, app):
         """Close all connections."""
         if hasattr(self.database.obj, 'close_all'):
             self.database.close_all()
+
+    async def _middleware(self, request, handler):
+        await self.database.async_connect()
+
+        try:
+            response = await handler(request)
+            self.database.commit()
+            return response
+
+        except peewee.DatabaseError:
+            self.database.rollback()
+            raise
+
+        finally:
+            if not self.database.is_closed():
+                await self.database.async_close()
+
+    _middleware.__middleware_version__ = 1
 
     def register(self, model):
         """Register a model in self."""
@@ -213,44 +204,23 @@ class Plugin(BasePlugin):
         model._meta.database = self.database
         return model
 
-    @asyncio.coroutine
-    def manage(self):
+    async def manage(self):
         """Manage a database connection."""
         cm = _ContextManager(self.database)
         if isinstance(self.database.obj, AIODatabase):
-            cm.connection = yield from self.database.async_connect()
+            cm.connection = await self.database.async_connect()
 
         else:
             cm.connection = self.database.connect()
 
         return cm
 
-
-#    def query(self, query):
-#        """ Async query. """
-#        if isinstance(query, pw.SelectQuery):
-#            return self.run(lambda: list(query))
-#        return self.run(query.execute)
-#
-#    @asyncio.coroutine
-#    def run(self, function, *args, **kwargs):
-#        """ Run sync code asyncronously. """
-#        if kwargs:
-#            function = partial(function, **kwargs)
-#
-#        def iteration(database, *args):
-#            database.connect()
-#            try:
-#                with database.transaction():
-#                    return function(*args)
-#            except pw.PeeweeException:
-#                database.rollback()
-#                raise
-#            finally:
-#                database.commit()
-#
-#        return (
-#            yield from self.app.loop.run_in_executor(
-#                self.threadpool, iteration, self.database,  *args))
+    async def conftest(self):
+        """Integration with tests."""
+        for model in self.models.values():
+            try:
+                model.create_table()
+            except peewee.OperationalError:
+                pass
 
 #  pylama:ignore=W0212
