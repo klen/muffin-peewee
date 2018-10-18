@@ -121,7 +121,8 @@ async def test_async_peewee(model):
         PLUGINS=['muffin_peewee'],
         PEEWEE_CONNECTION='sqliteext:///:memory:'
     )
-    app.ps.peewee.startup(app)
+    app.on_startup.freeze()
+    await app.startup()
 
     conn = await app.ps.peewee.database.async_connect()
     assert conn
