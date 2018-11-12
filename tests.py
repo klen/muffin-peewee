@@ -4,16 +4,15 @@ import pytest
 
 
 @pytest.fixture(scope='session')
-def app(loop):
+def app():
     return muffin.Application(
-        'peewee', loop=loop, PLUGINS=['muffin_peewee'],
+        'peewee', PLUGINS=['muffin_peewee'],
         PEEWEE_CONNECTION='sqliteext:///:memory:'
-        #  PEEWEE_CONNECTION='sqliteext:///tests.sqlite'
     )
 
 
 @pytest.fixture(scope='session')
-def model(app, loop):
+def model(app):
     from muffin_peewee.fields import JSONField
 
     @app.ps.peewee.register
@@ -113,21 +112,28 @@ def test_migrations(app, tmpdir):
     assert '002_auto' == name
 
 
-@pytest.mark.async
-def test_async_peewee(app, model):
-    conn = yield from app.ps.peewee.database.async_connect()
+async def test_async_peewee(model):
+    app = muffin.Application(
+        'peewee',
+        PLUGINS=['muffin_peewee'],
+        PEEWEE_CONNECTION='sqliteext:///:memory:'
+    )
+    app.on_startup.freeze()
+    await app.startup()
+
+    conn = await app.ps.peewee.database.async_connect()
     assert conn
     assert conn.cursor()
-    yield from app.ps.peewee.database.async_close()
+    await app.ps.peewee.database.async_close()
 
     with pytest.raises(Exception):
         conn.cursor()
 
-    assert app.ps.peewee.database.obj.transaction_depth() == 0
+    assert not app.ps.peewee.database.obj._state.transactions
 
-    with (yield from app.ps.peewee.manage()):
-        assert app.ps.peewee.database.obj.transaction_depth() == 1
-        model.create_table()
+    with (await app.ps.peewee.manage()):
+        assert app.ps.peewee.database.obj._state.transactions
+        model.create_table(True)
         model.select().execute()
 
-    assert app.ps.peewee.database.obj.transaction_depth() == 0
+    assert not app.ps.peewee.database.obj._state.transactions

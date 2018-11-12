@@ -26,7 +26,7 @@ Muffin Peewee -- Peewee ORM integration to Muffin framework.
 Requirements
 =============
 
-- python >= 3.3
+- python >= 3.5.3
 
 .. _installation:
 

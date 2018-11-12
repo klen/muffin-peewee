@@ -1,65 +1,13 @@
 """Implement the plugin."""
 
-import asyncio
-
 import peewee as pw
+
 from muffin.plugins import BasePlugin
 from muffin.utils import Struct
 from peewee_migrate import Router
 
 from .models import Model, TModel
 from .mpeewee import connect, AIODatabase
-
-
-@asyncio.coroutine
-def peewee_middleware_factory(app, handler):
-    """Manage a database connection while request is processing."""
-    database = app.ps.peewee.database
-
-    @asyncio.coroutine
-    def middleware(request):
-        yield from database.async_connect()
-
-        try:
-            response = yield from handler(request)
-            database.commit()
-            return response
-
-        except pw.DatabaseError:
-            database.rollback()
-            raise
-
-        finally:
-            if not database.is_closed():
-                yield from database.async_close()
-
-    return middleware
-
-
-class _ContextManager:
-
-    """Context manager.
-
-    This enables the following idiom for acquiring and releasing a database around a block:
-
-        with (yield from database):
-            <block>
-    """
-
-    def __init__(self, db):
-        self.transaction = pw._transaction(db)
-        self.connection = None
-
-    def __enter__(self):
-        self.transaction.__enter__()
-        return self
-
-    def __exit__(self, *args):
-        try:
-            self.transaction.__exit__(*args)
-        finally:
-            if self.connection:
-                self.connection.close()
 
 
 class Plugin(BasePlugin):
@@ -160,16 +108,34 @@ class Plugin(BasePlugin):
 
         self.app.manage.command(pw_merge)
 
-    def start(self, app):
+    def startup(self, app):
         """Register connection's middleware and prepare self database."""
-        self.database.async_init(app.loop)
+        self.database.init_async(app.loop)
         if not self.cfg.connection_manual:
-            app.middlewares.insert(0, peewee_middleware_factory)
+            app.middlewares.insert(0, self._middleware)
 
-    def finish(self, app):
+    def cleanup(self, app):
         """Close all connections."""
         if hasattr(self.database.obj, 'close_all'):
             self.database.close_all()
+
+    async def _middleware(self, request, handler):
+        await self.database.async_connect()
+
+        try:
+            response = await handler(request)
+            self.database.commit()
+            return response
+
+        except pw.DatabaseError:
+            self.database.rollback()
+            raise
+
+        finally:
+            if not self.database.is_closed():
+                await self.database.async_close()
+
+    _middleware.__middleware_version__ = 1
 
     def register(self, model):
         """Register a model in self."""
@@ -177,14 +143,49 @@ class Plugin(BasePlugin):
         model._meta.database = self.database
         return model
 
-    @asyncio.coroutine
-    def manage(self):
+    async def manage(self):
         """Manage a database connection."""
         cm = _ContextManager(self.database)
         if isinstance(self.database.obj, AIODatabase):
-            cm.connection = yield from self.database.async_connect()
+            cm.connection = await self.database.async_connect()
 
         else:
             cm.connection = self.database.connect()
 
         return cm
+
+    async def conftest(self):
+        """Integration with tests."""
+        for model in self.models.values():
+            try:
+                model.create_table()
+            except pw.OperationalError:
+                pass
+
+
+class _ContextManager:
+
+    """Context manager.
+
+    This enables the following idiom for acquiring and releasing a database around a block:
+
+        with (yield from database):
+            <block>
+    """
+
+    def __init__(self, db):
+        self.transaction = pw._transaction(db)
+        self.connection = None
+
+    def __enter__(self):
+        self.transaction.__enter__()
+        return self
+
+    def __exit__(self, *args):
+        try:
+            self.transaction.__exit__(*args)
+        finally:
+            if self.connection:
+                self.connection.close()
+
+#  pylama:ignore=W0212

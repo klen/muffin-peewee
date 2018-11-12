@@ -24,7 +24,7 @@ CONN_PARAMS = {
 }
 
 
-LOCAL = threading.local()
+THREADING_LOCAL = threading.local()
 METHODS = set([
     '__setattr__', '__getattr__', '__delattr__', '__current__', 'reset', 'set_connection'])
 
@@ -68,7 +68,7 @@ class ConnectionLocal(pw._ConnectionState):
         """Create namespace inside running task."""
         loop = asyncio.get_event_loop()
         if not loop or not loop.is_running():
-            return LOCAL
+            return THREADING_LOCAL
 
         task = asyncio.Task.current_task(loop=loop)
         if not task:
@@ -80,66 +80,37 @@ class ConnectionLocal(pw._ConnectionState):
         return task._locals
 
 
-class _ContextManager:
-
-    """Context manager.
-
-    This enables the following idiom for acquiring and releasing a database around a block:
-
-        with (yield from database):
-            <block>
-    """
-
-    def __init__(self, db):
-        self._db = db
-
-    def __enter__(self):
-        return None
-
-    def __exit__(self, exc_type, exc, tb):
-        try:
-            self._db.commit()
-        except pw.DatabaseError:
-            self._db.rollback()
-
-        finally:
-            if not self._db.is_closed():
-                self._db.close()
-            self._db = None
-
-
 class AIODatabase:
 
     """Support for async operations."""
 
-    _aioconn_lock = None
+    _async_lock = None
 
-    def async_init(self, loop=None):
+    def init_async(self, loop=None):
         """Use when application is starting."""
         self._loop = loop or asyncio.get_event_loop()
-        self._aioconn_lock = asyncio.Lock(loop=loop)
+        self._async_lock = asyncio.Lock(loop=loop)
 
         # FIX: SQLITE in memory database
         if not self.database == ':memory:':
             self._state = ConnectionLocal()
 
-    @asyncio.coroutine
-    def async_connect(self):
+    async def async_connect(self):
         """Catch a connection asyncrounosly."""
-        if self._aioconn_lock is None:
+        if self._async_lock is None:
             raise Exception('Error, database not properly initialized before async connection')
 
-        with (yield from self._aioconn_lock):
+        async with self._async_lock:
             self.connect(True)
+
         return self._state.conn
 
-    @asyncio.coroutine
-    def async_close(self):
+    async def async_close(self):
         """Close the current connection asyncrounosly."""
-        if self._aioconn_lock is None:
+        if self._async_lock is None:
             raise Exception('Error, database not properly initialized before async connection')
 
-        with (yield from self._aioconn_lock):
+        async with self._async_lock:
             self.close()
 
 
@@ -149,36 +120,35 @@ class PooledAIODatabase:
 
     _waiters = None
 
-    def async_init(self, loop):
+    def init_async(self, loop):
         """Initialize self."""
-        super(PooledAIODatabase, self).async_init(loop)
+        super(PooledAIODatabase, self).init_async(loop)
         self._waiters = collections.deque()
 
-    @asyncio.coroutine
-    def async_connect(self):
-        """Wait for connection from pool."""
+    async def async_connect(self):
+        """Asyncronously wait for a connection from the pool."""
         if self._waiters is None:
             raise Exception('Error, database not properly initialized before async connection')
 
         if self._waiters or self.max_connections and (len(self._in_use) >= self.max_connections):
-            fut = asyncio.Future(loop=self._loop)
-            self._waiters.append(fut)
+            waiter = asyncio.Future(loop=self._loop)
+            self._waiters.append(waiter)
 
             try:
                 logger.debug('Wait for connection.')
-                yield from fut
+                await waiter
             finally:
-                self._waiters.remove(fut)
+                self._waiters.remove(waiter)
 
         self.connect()
         return self._state.conn
 
-    def _close(self, *args, **kwargs):
-        """Release a waiter."""
-        super(PooledAIODatabase, self)._close(*args, **kwargs)
+    def _close(self, conn):
+        """Release waiters."""
+        super(PooledAIODatabase, self)._close(conn)
         for waiter in self._waiters:
             if not waiter.done():
-                logger.debug('Leave a waiter.')
+                logger.debug('Release a waiter')
                 waiter.set_result(True)
                 break
 
