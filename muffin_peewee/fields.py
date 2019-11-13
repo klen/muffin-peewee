@@ -1,13 +1,13 @@
 """Custom fields."""
-import ujson
 from cached_property import cached_property
 from peewee import Field, PostgresqlDatabase, Proxy
+from muffin.utils import json
 
 
 try:
     from playhouse.postgres_ext import Json, JsonLookup
     PostgresqlDatabase.register_fields({'json': 'json'})
-except:
+except ImportError:
     Json = JsonLookup = None
 
 
@@ -17,8 +17,8 @@ class JSONField(Field):
 
     def __init__(self, dumps=None, loads=None, *args, **kwargs):
         """Initialize the serializer."""
-        self.dumps = dumps or ujson.dumps
-        self.loads = loads or ujson.loads
+        self.dumps = dumps or json.dumps
+        self.loads = loads or json.loads
         super(JSONField, self).__init__(*args, **kwargs)
 
     @cached_property
