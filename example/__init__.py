@@ -1,16 +1,16 @@
 import muffin
+import muffin_peewee
 
 
 # Setup application
 app = muffin.Application(
     'example',
 
-    PLUGINS=(
-        'muffin_peewee',
-    ),
-    PEEWEE_CONNECTION='sqlite:///example.db',
+    DEBUG=True,
+    PEEWEE_CONNECTION='sqlite+async:///example.db',
     PEEWEE_MIGRATIONS_PATH='example/migrations',
 )
+db = muffin_peewee.Plugin(app)
 
 # Register views
 from example.views import *  # noqa

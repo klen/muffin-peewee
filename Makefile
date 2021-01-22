@@ -22,9 +22,8 @@ clean:
 .PHONY: release
 VERSION?=minor
 # target: release - Bump version
-release:
-	@$(VIRTUAL_ENV)/bin/pip install bumpversion
-	@$(VIRTUAL_ENV)/bin/bumpversion $(VERSION)
+release: $(VIRTUAL_ENV)
+	@$(VIRTUAL_ENV)/bin/bump2version $(VERSION)
 	@git checkout master
 	@git merge develop
 	@git checkout develop
@@ -53,36 +52,28 @@ register:
 
 .PHONY: upload
 # target: upload - Upload module on PyPi
-upload: clean
-	@$(VIRTUAL_ENV)/bin/pip install twine wheel
-	@$(VIRTUAL_ENV)/bin/python setup.py sdist bdist_wheel
-	rm -f dist/*.tar.gz
+upload: clean $(VIRTUAL_ENV)
+	@$(VIRTUAL_ENV)/bin/python setup.py bdist_wheel
 	@$(VIRTUAL_ENV)/bin/twine upload dist/*
 
 # =============
 #  Development
 # =============
 
-$(VIRTUAL_ENV): requirements.txt
-	@[ -d $(VIRTUAL_ENV) ] || virtualenv --no-site-packages $(VIRTUAL_ENV) --python=python3.4
-	@$(VIRTUAL_ENV)/bin/pip install -r requirements.txt --no-cache
+$(VIRTUAL_ENV): setup.cfg
+	@[ -d $(VIRTUAL_ENV) ] || python -m venv $(VIRTUAL_ENV)
+	@$(VIRTUAL_ENV)/bin/pip install -e .[tests,build,example]
 	@touch $(VIRTUAL_ENV)
-
-$(VIRTUAL_ENV)/bin/py.test: $(VIRTUAL_ENV) requirements-tests.txt
-	@$(VIRTUAL_ENV)/bin/pip install -r requirements-tests.txt
-	@touch $(VIRTUAL_ENV)/bin/py.test
 
 .PHONY: test
 # target: test - Runs tests
-test: $(VIRTUAL_ENV)/bin/py.test
-	@$(VIRTUAL_ENV)/bin/py.test tests.py
+test: $(VIRTUAL_ENV)
+	@$(VIRTUAL_ENV)/bin/pytest tests.py
 
 .PHONY: t
 t: test
 
-example.db: $(VIRTUAL_ENV)
+.PHONY: example
+example: $(VIRTUAL_ENV)
 	@$(VIRTUAL_ENV)/bin/muffin example pw_migrate
-
-.PHONY: run
-run: $(VIRTUAL_ENV) example.db
-	@$(VIRTUAL_ENV)/bin/muffin example run --timeout=600
+	@$(VIRTUAL_ENV)/bin/uvicorn --reload --port 5000 example:app

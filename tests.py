@@ -3,79 +3,87 @@ import peewee
 import pytest
 
 
-@pytest.fixture(scope='session')
+@pytest.fixture(params=[
+    pytest.param('asyncio'),
+    pytest.param('trio'),
+], autouse=True)
+def anyio_backend(request):
+    return request.param
+
+
+@pytest.fixture
 def app():
     return muffin.Application(
-        'peewee', PLUGINS=['muffin_peewee'],
-        PEEWEE_CONNECTION='sqliteext:///:memory:'
+        'peewee', PEEWEE_CONNECTION='sqliteext+async:///:memory:'
     )
 
 
-@pytest.fixture(scope='session')
-def model(app):
-    from muffin_peewee.fields import JSONField
+@pytest.fixture
+def db(app):
+    import muffin_peewee
 
-    @app.ps.peewee.register
-    class Test(app.ps.peewee.TModel):
-        data = peewee.CharField()
-        json = JSONField(default={})
-
-    try:
-        Test.create_table()
-    except peewee.OperationalError:
-        pass
-
-    return Test
+    return muffin_peewee.Plugin(app)
 
 
-@pytest.yield_fixture
-def transaction(app):
+@pytest.yield_fixture(autouse=True)
+def transaction(db):
     """Clean changes after test."""
     try:
-        with app.ps.peewee.database.atomic() as trans:
+        with db.database.atomic() as trans:
             yield True
             trans.rollback()
     except Exception:
         pass
 
 
-def test_model(app, model):
-    assert app.ps.peewee
+def test_json_field(db):
+    from muffin_peewee import JSONField
 
-    with pytest.raises(AttributeError):
-        model.post_save.connect(None)
+    @db.register
+    class Test(peewee.Model):
+        data = peewee.CharField()
+        json = JSONField(default={})
 
-    @model.post_save()
-    def test_signal(sender, instance, created=False):
-        instance.saved = getattr(instance, 'saved', 0) + 1
+    Test.create_table()
 
-    ins = model(data='some', json={'key': 'value'})
+    ins = Test(data='some', json={'key': 'value'})
     ins.save()
 
-    assert ins.pk == ins.id
     assert ins.json
-    assert ins.created
-    assert ins.saved == 1
 
-    ins.save()
-    assert ins.saved == 2
-
-    model.post_save.disconnect(test_signal)
-    ins.save()
-    assert ins.saved == 2
-
-    with pytest.raises(ValueError):
-        model.post_save.disconnect(test_signal)
-
-    test = model.get()
+    test = Test.get()
     assert test.json == {'key': 'value'}
 
 
-def test_uuid(app):
-    """ Test for UUID in Sqlite. """
+def test_migrations(db, tmpdir):
+    assert db.router
 
-    @app.ps.peewee.register
-    class M(app.ps.peewee.TModel):
+    db.router.migrate_dir = str(tmpdir.mkdir('migrations'))
+
+    assert not db.router.todo
+    assert not db.router.done
+    assert not db.router.diff
+
+    # Create migration
+    name = db.router.create('test')
+    assert '001_test' == name
+    assert db.router.todo
+    assert not db.router.done
+    assert db.router.diff
+
+    # Run migrations
+    db.router.run()
+    assert db.router.done
+    assert not db.router.diff
+
+    name = db.router.create()
+    assert '002_auto' == name
+
+
+def test_uuid(db):
+    """ Test for UUID in Sqlite. """
+    @db.register
+    class M(peewee.Model):
         data = peewee.UUIDField()
     M.create_table()
 
@@ -86,54 +94,38 @@ def test_uuid(app):
     assert M.get() == m
 
 
-def test_migrations(app, tmpdir):
-    assert app.ps.peewee.router
-
-    router = app.ps.peewee.router
-    router.migrate_dir = str(tmpdir.mkdir('migrations'))
-
-    assert not router.todo
-    assert not router.done
-    assert not router.diff
-
-    # Create migration
-    name = router.create('test')
-    assert '001_test' == name
-    assert router.todo
-    assert not router.done
-    assert router.diff
-
-    # Run migrations
-    router.run()
-    assert router.done
-    assert not router.diff
-
-    name = router.create()
-    assert '002_auto' == name
+def test_cli(app):
+    assert 'pw_create' in app.manage.commands
+    assert 'pw_migrate' in app.manage.commands
+    assert 'pw_rollback' in app.manage.commands
+    assert 'pw_list' in app.manage.commands
 
 
-async def test_async_peewee(model):
-    app = muffin.Application(
-        'peewee',
-        PLUGINS=['muffin_peewee'],
-        PEEWEE_CONNECTION='sqliteext:///:memory:'
-    )
-    app.on_startup.freeze()
-    await app.startup()
+async def test_async_peewee():
+    import muffin_peewee
 
-    conn = await app.ps.peewee.database.async_connect()
+    app = muffin.Application('peewee', PEEWEE_CONNECTION='sqliteext+async:///:memory:')
+    db = muffin_peewee.Plugin(app)
+
+    conn = await db.connect_async()
     assert conn
     assert conn.cursor()
-    await app.ps.peewee.database.async_close()
+    db.close()
 
     with pytest.raises(Exception):
         conn.cursor()
 
-    assert not app.ps.peewee.database.obj._state.transactions
+    assert db.transaction_depth() == 0
 
-    with (await app.ps.peewee.manage()):
-        assert app.ps.peewee.database.obj._state.transactions
-        model.create_table(True)
-        model.select().execute()
+    @db.register
+    class Test(peewee.Model):
+        value = peewee.CharField()
 
-    assert not app.ps.peewee.database.obj._state.transactions
+    Test.create_table()
+    assert list(Test.select().execute()) == []
+    db.close()
+
+    async with db:
+        assert db.transaction_depth() == 1
+
+    assert db.transaction_depth() == 0
