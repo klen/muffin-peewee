@@ -48,9 +48,9 @@ class Plugin(BasePlugin):
         self.router = None
         super(Plugin, self).__init__(app, **options)
 
-    def init(self, app, **options):
+    def setup(self, app, **options):
         """Init the plugin."""
-        super().init(app, **options)
+        super().setup(app, **options)
         self.database.initialize(db_url.connect(self.cfg.connection, **self.cfg.connection_params))
 
         if self.cfg.migrations_enabled:
