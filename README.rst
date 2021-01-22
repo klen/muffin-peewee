@@ -3,19 +3,17 @@ Muffin Peewee
 
 .. _description:
 
-Muffin Peewee -- Peewee ORM integration to Muffin framework.
+***muffin-peewee** -- Peewee_ ORM integration to Muffin_ framework.
 
 .. _badges:
 
-.. image:: http://img.shields.io/travis/klen/muffin-peewee.svg?style=flat-square
-    :target: http://travis-ci.org/klen/muffin-peewee
-    :alt: Build Status
+.. image:: https://github.com/klen/muffin-peewee/workflows/tests/badge.svg
+    :target: https://github.com/klen/muffin-peewee/actions
+    :alt: Tests Status
 
-.. image:: http://img.shields.io/pypi/v/muffin-peewee.svg?style=flat-square
-    :target: https://pypi.python.org/pypi/muffin-peewee
-
-.. image:: http://img.shields.io/pypi/dm/muffin-peewee.svg?style=flat-square
-    :target: https://pypi.python.org/pypi/muffin-peewee
+.. image:: https://img.shields.io/pypi/v/muffin-peewee
+    :target: https://pypi.org/project/muffin-peewee/
+    :alt: PYPI Version
 
 .. _contents:
 
@@ -26,7 +24,7 @@ Muffin Peewee -- Peewee ORM integration to Muffin framework.
 Requirements
 =============
 
-- python >= 3.5.3
+- python >= 3.7
 
 .. _installation:
 
@@ -37,58 +35,68 @@ Installation
 
     pip install muffin-peewee
 
+Optionally you are able to install it with postgresql drivers: ::
+
+    pip install muffin-peewee[postgres]
+
 .. _usage:
 
 Usage
 =====
 
-Add `muffin_peewee` to `PLUGINS` in your Muffin Application configuration.
+.. code-block:: python
 
-Or install it manually like this: ::
+    from muffin import Application
+    from muffin_peewee import Plugin as Peewee
 
-    db = muffin_peewee.Plugin(**{'options': 'here'})
+    # Create Muffin Application
+    app = Application('example')
 
-    app = muffin.Application('test')
-    app.install(db)
+    # Initialize the plugin
+    # As alternative: jinja2 = Jinja2(app, **options)
+    db = Peewee()
+    db.init(app, PEEWEE_CONNECTION='postgres+pool+async://postgres:postgres@localhost:5432/database')
 
 
 Options
 -------
 
-`PEEWEE_CONNECTION` -- connection string to your database (sqlite:///db.sqlite)
+Format: ``Name`` -- Description (``default value``)
 
-`PEEWEE_CONNECTION_PARAMS` -- Additional params for connection ({})
+``CONNECTION`` -- connection string to your database (``sqlite:///db.sqlite``)
 
-`PEEWEE_CONNECTION_MANUAL` -- Doesn't manage db connections automatically
+``CONNECTION_PARAMS`` -- Additional params for connection (``{}``)
 
-`PEEWEE_MIGRATIONS_ENABLED` -- enable migrations (True)
+``MANAGE_CONNECTIONS`` -- Install a middleware to manage db connections automatically (``True``)
 
-`PEEWEE_MIGRATIONS_PATH` -- path to migration folder (migrations)
+``MIGRATIONS_ENABLED`` -- Enable migrations with ``peewee-migrate`` (``True``)
+
+``MIGRATIONS_PATH`` -- Set path to the migrations folder (``migrations``)
 
 Queries
 -------
 
 ::
 
-    @app.ps.peewee.register
+    @db.register
     class Test(peewee.Model):
         data = peewee.CharField()
 
 
-    @app.register
-    def view(request):
+    @app.route('/')
+    async def view(request):
         return [t.data for t in Test.select()]
 
 Manage connections
 ------------------
 ::
 
-    # Set configuration option `PEEWEE_CONNECTION_MANUAL` to True
+    # Set configuration option `MANAGE_CONNECTIONS` to False
 
     # Use context manager
-    @app.register
-    def view(request):
-        with (yield from app.ps.peewee.manage()):
+    @app.route('/')
+    async def view(request):
+        async with db:
             # Work with db
             # ...
 
@@ -98,30 +106,22 @@ Migrations
 
 Create migrations: ::
 
-    $ muffin example:app create [NAME] [--auto]
+    $ muffin example:app pw_create [NAME] [--auto]
 
 
 Run migrations: ::
 
-    $ muffin example:app migrate [NAME] [--fake]
+    $ muffin example:app pw_migrate [NAME] [--fake]
 
 
 Rollback migrations: ::
 
-    $ muffin example:app rollback NAME
+    $ muffin example:app pw_rollback [NAME]
 
 
-Load/Dump data to CSV
----------------------
+List migrations: ::
 
-Dump table `test` to CSV file: ::
-
-    $ muffin example:app csv_dump test
-
-
-Load data from CSV file to table `test`: ::
-
-    $ muffin example:app csv_load test
+    $ muffin example:app pw_list
 
 
 .. _bugtracker:
@@ -149,19 +149,13 @@ Contributors
 .. _license:
 
 License
-=======
+========
 
 Licensed under a `MIT license`_.
-
-If you wish to express your appreciation for the project, you are welcome to send
-a postcard to: ::
-
-    Kirill Klenov
-    pos. Severny 8-3
-    MO, Istra, 143500
-    Russia
 
 .. _links:
 
 .. _MIT license: http://opensource.org/licenses/MIT
+.. _Muffin: https://github.com/klen/muffin
+.. _Peewee: http://docs.peewee-orm.com/en/latest/
 .. _klen: https://github.com/klen

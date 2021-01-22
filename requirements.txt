@@ -1,4 +1,0 @@
-muffin              >= 0.30
-
-peewee              < 3
-peewee-migrate      < 1

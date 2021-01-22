@@ -4,8 +4,8 @@ import string
 from example import app, muffin, models
 
 
-@app.register('/')
-def list(request):
+@app.route('/')
+async def list(request):
     objects = models.DataItem.select()
     template = """
         <html>
@@ -18,17 +18,17 @@ def list(request):
     return template
 
 
-@app.register('/generate')
-def generate(request):
+@app.route('/generate')
+async def generate(request):
     """ Create a new DataItem. """
     models.DataItem.create(
         content=''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(20))
     )
-    return muffin.HTTPFound('/')
+    return muffin.ResponseRedirect('/')
 
 
-@app.register('/clean')
-def clean(request):
+@app.route('/clean')
+async def clean(request):
     """ Create a new DataItem. """
     models.DataItem.delete().execute()
-    return muffin.HTTPFound('/')
+    return muffin.ResponseRedirect('/')
