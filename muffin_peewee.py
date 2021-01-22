@@ -1,6 +1,6 @@
 """Support Peewee ORM for Muffin framework."""
 
-__version__ = "1.3.1"
+__version__ = "1.4.0"
 __project__ = "muffin-peewee"
 __author__ = "Kirill Klenov <horneds@gmail.com>"
 __license__ = "MIT"
