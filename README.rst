@@ -3,7 +3,7 @@ Muffin Peewee
 
 .. _description:
 
-***muffin-peewee** -- Peewee_ ORM integration to Muffin_ framework.
+**muffin-peewee** -- Peewee_ ORM integration to Muffin_ framework.
 
 .. _badges:
 
