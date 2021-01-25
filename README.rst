@@ -55,7 +55,7 @@ Usage
     # Initialize the plugin
     # As alternative: jinja2 = Jinja2(app, **options)
     db = Peewee()
-    db.init(app, PEEWEE_CONNECTION='postgres+pool+async://postgres:postgres@localhost:5432/database')
+    db.setup(app, PEEWEE_CONNECTION='postgres+pool+async://postgres:postgres@localhost:5432/database')
 
 
 Options
