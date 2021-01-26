@@ -130,8 +130,11 @@ class Plugin(BasePlugin):
         self.database.obj.__exit__(*args)
 
     def shutdown(self):
-        """Close all connections."""
-        self.database.close_all()
+        """Close connections."""
+        if hasattr(self.database, 'close_all'):
+            self.database.close_all()
+        else:
+            self.database.close()
 
     def register(self, model):
         """Register a model with the plugin."""

@@ -101,7 +101,7 @@ def test_cli(app):
     assert 'pw_list' in app.manage.commands
 
 
-async def test_async_peewee():
+async def test_async():
     import muffin_peewee
 
     app = muffin.Application('peewee', PEEWEE_CONNECTION='sqliteext+async:///:memory:')
@@ -129,3 +129,12 @@ async def test_async_peewee():
         assert db.transaction_depth() == 1
 
     assert db.transaction_depth() == 0
+
+
+async def test_sync():
+    import muffin_peewee
+
+    app = muffin.Application('peewee', PEEWEE_CONNECTION='sqlite:///:memory:')
+    db = muffin_peewee.Plugin(app)
+    await app.lifespan.__startup__()
+    await app.lifespan.__shutdown__()
