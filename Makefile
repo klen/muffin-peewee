@@ -65,13 +65,14 @@ $(VIRTUAL_ENV): setup.cfg
 	@$(VIRTUAL_ENV)/bin/pip install -e .[tests,build,example]
 	@touch $(VIRTUAL_ENV)
 
-.PHONY: test
+.PHONY: t test
 # target: test - Runs tests
-test: $(VIRTUAL_ENV)
+t test: $(VIRTUAL_ENV)
 	@$(VIRTUAL_ENV)/bin/pytest tests.py
 
-.PHONY: t
-t: test
+.PHONY: mypy
+mypy: $(VIRTUAL_ENV)
+	@$(VIRTUAL_ENV)/bin/mypy muffin_peewee
 
 .PHONY: example
 example: $(VIRTUAL_ENV)

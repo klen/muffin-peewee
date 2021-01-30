@@ -15,6 +15,10 @@ Muffin Peewee
     :target: https://pypi.org/project/muffin-peewee/
     :alt: PYPI Version
 
+.. image:: https://img.shields.io/pypi/pyversions/muffin-peewee
+    :target: https://pypi.org/project/muffin-peewee/
+    :alt: Python Versions
+
 .. _contents:
 
 .. contents::

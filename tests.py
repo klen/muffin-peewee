@@ -25,7 +25,7 @@ def db(app):
     return muffin_peewee.Plugin(app)
 
 
-@pytest.yield_fixture(autouse=True)
+@pytest.fixture(autouse=True)
 def transaction(db):
     """Clean changes after test."""
     try:
@@ -135,6 +135,6 @@ async def test_sync():
     import muffin_peewee
 
     app = muffin.Application('peewee', PEEWEE_CONNECTION='sqlite:///:memory:')
-    db = muffin_peewee.Plugin(app)
+    muffin_peewee.Plugin(app)
     await app.lifespan.__startup__()
     await app.lifespan.__shutdown__()

@@ -1,17 +1,25 @@
 """Support Peewee ORM for Muffin framework."""
 
+import json
+import typing as t
+
+import muffin
+import peewee as pw
+from aiopeewee import db_url, DatabaseAsync
+from muffin._types import Receive, Send
+from muffin.plugin import BasePlugin
+from peewee_migrate import Router
+
+
 __version__ = "1.5.2"
 __project__ = "muffin-peewee"
 __author__ = "Kirill Klenov <horneds@gmail.com>"
 __license__ = "MIT"
 
-from aiopeewee import db_url, DatabaseAsync
-from muffin.plugin import BasePlugin
-from functools import cached_property
-import peewee as pw
-import json
-from peewee_migrate import Router
-
+try:
+    from functools import cached_property  # type: ignore
+except ImportError:
+    from cached_property import cached_property  # type: ignore # XXX: Python 3.7
 
 try:
     from playhouse.postgres_ext import Json, JsonLookup
@@ -41,14 +49,14 @@ class Plugin(BasePlugin):
         'migrations_path': 'migrations',
     }
 
-    def __init__(self, app=None, **options):
+    def __init__(self, app: muffin.Application = None, **options):
         """Initialize the plugin."""
-        self.database = pw.Proxy()
-        self.models = {}
-        self.router = None
+        self.database: pw.Proxy = pw.Proxy()
+        self.models: t.Dict[str, pw.Model] = {}
+        self.router: Router = None
         super(Plugin, self).__init__(app, **options)
 
-    def setup(self, app, **options):
+    def setup(self, app: muffin.Application, **options):
         """Init the plugin."""
         super().setup(app, **options)
         self.database.initialize(db_url.connect(self.cfg.connection, **self.cfg.connection_params))
@@ -73,9 +81,7 @@ class Plugin(BasePlugin):
                 :param name: Set name of migration [auto]
                 :param auto: Track changes and setup migrations automatically
                 """
-                if auto:
-                    auto = list(self.models.values())
-                self.router.create(name, auto)
+                self.router.create(name, auto and [m for m in self.models.values()])
 
             @app.manage
             def pw_rollback(name: str = None):
@@ -100,11 +106,12 @@ class Plugin(BasePlugin):
         if self.cfg.manage_connections:
             self.app.middleware(self.__middleware__)
 
-    def __getattr__(self, name):
+    def __getattr__(self, name: str) -> t.Any:
         """Proxy attrs to self database."""
         return getattr(self.database.obj, name)
 
-    async def __middleware__(self, handler, request, receive, send):
+    async def __middleware__(
+            self, handler: t.Callable, request: muffin.Request, receive: Receive, send: Send):
         """Manage connections."""
         await self.database.connect_async()
 
@@ -136,7 +143,7 @@ class Plugin(BasePlugin):
         else:
             self.database.close()
 
-    def register(self, model):
+    def register(self, model: pw.Model):
         """Register a model with the plugin."""
         self.models[model._meta.table_name] = model
         model._meta.database = self.database
@@ -154,13 +161,14 @@ class JSONField(pw.Field):
 
     unpack = False
 
-    def __init__(self, json_dumps=None, json_loads=None, *args, **kwargs):
+    def __init__(
+            self, json_dumps: t.Callable = None, json_loads: t.Callable = None, *args, **kwargs):
         """Initialize the serializer."""
         self._json_dumps = json_dumps or json.dumps
         self._json_loads = json_loads or json.loads
         super(JSONField, self).__init__(*args, **kwargs)
 
-    def __getitem__(self, value):
+    def __getitem__(self, value) -> JsonLookup:
         """Lookup item in database."""
         return JsonLookup(self, [value])
 
