@@ -11,7 +11,7 @@ from muffin.plugin import BasePlugin
 from peewee_migrate import Router
 
 
-__version__ = "1.6.1"
+__version__ = "1.6.2"
 __project__ = "muffin-peewee"
 __author__ = "Kirill Klenov <horneds@gmail.com>"
 __license__ = "MIT"
