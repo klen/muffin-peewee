@@ -65,17 +65,30 @@ Usage
 Options
 -------
 
-Format: ``Name`` -- Description (``default value``)
+=========================== ======================================= =========================== 
+Name                        Default value                           Desctiption
+--------------------------- --------------------------------------- ---------------------------
+**CONNECTION**              ``sqlite:///db.sqlite``                 Database URL
+**CONNECTION_PARAMS**       ``{}``                                  Additional params for DB connection
+**MANAGE_CONNECTIONS**      ``True``                                Install a middleware to aquire db connections automatically
+**MIGRATIONS_ENABLED**      ``True``                                Enable migrations with
+**MIGRATIONS_PATH**         ``"migrations"``                        Set path to the migrations folder
+=========================== ======================================= =========================== 
 
-``CONNECTION`` -- connection string to your database (``sqlite:///db.sqlite``)
+You are able to provide the options when you are initiliazing the plugin:
 
-``CONNECTION_PARAMS`` -- Additional params for connection (``{}``)
+.. code-block:: python
 
-``MANAGE_CONNECTIONS`` -- Install a middleware to manage db connections automatically (``True``)
+    db.setup(app, connection='DB_URL')
 
-``MIGRATIONS_ENABLED`` -- Enable migrations with ``peewee-migrate`` (``True``)
 
-``MIGRATIONS_PATH`` -- Set path to the migrations folder (``migrations``)
+Or setup it inside ``Muffin.Application`` config using the ``PEEWEE_`` prefix:
+
+.. code-block:: python
+
+   PEEWEE_CONNECTION = 'DB_URL'
+
+``Muffin.Application`` configuration options are case insensitive
 
 Queries
 -------
