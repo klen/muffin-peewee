@@ -136,5 +136,5 @@ async def test_sync():
 
     app = muffin.Application('peewee', PEEWEE_CONNECTION='sqlite:///:memory:')
     muffin_peewee.Plugin(app)
-    await app.lifespan.__startup__()
-    await app.lifespan.__shutdown__()
+    await app.lifespan.run('startup')
+    await app.lifespan.run('shutdown')
