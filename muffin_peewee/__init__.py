@@ -130,7 +130,7 @@ class Plugin(BasePlugin):
     async def __middleware__(
             self, handler: t.Callable, request: muffin.Request, receive: Receive, send: Send):
         """Manage connections asynchronously."""
-        self.database.connect()
+        self.database.connect(reuse_if_open=True)
         try:
             response = await handler(request, receive, send)
             self.database.commit()
@@ -153,10 +153,11 @@ class Plugin(BasePlugin):
 
     async def shutdown(self):
         """Close connections."""
-        for m in ['close_all_async', 'close_async', 'close_all', 'close']:
-            if hasattr(self.database.obj, m):
-                getattr(self.database.obj, m)()
-                break
+        db = self.database.obj
+        if self.is_async:
+            await getattr(db, 'close_all_async', getattr(db, 'close_async'))()
+        else:
+            getattr(db, 'close_all', getattr(db, 'close'))()
 
     def register(self, model: pw.Model):
         """Register a model with the plugin."""

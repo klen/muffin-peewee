@@ -1,6 +1,7 @@
 import muffin
 import peewee
 import pytest
+from unittest import mock
 
 
 @pytest.fixture
@@ -126,7 +127,10 @@ async def test_async():
 async def test_sync():
     import muffin_peewee
 
-    app = muffin.Application('peewee', PEEWEE_CONNECTION='sqlite:///:memory:')
-    muffin_peewee.Plugin(app)
-    await app.lifespan.run('startup')
-    await app.lifespan.run('shutdown')
+    app = muffin.Application('peewee', PEEWEE_CONNECTION='sqlite+async:///:memory:')
+    db = muffin_peewee.Plugin(app)
+    with mock.patch.object(db.database.obj, 'close_async') as mocked:
+        await app.lifespan.run('startup')
+        await app.lifespan.run('shutdown')
+        assert mocked.called
+        assert mocked.await_count == 1
