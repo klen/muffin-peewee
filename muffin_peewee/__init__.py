@@ -54,12 +54,15 @@ class Plugin(BasePlugin):
         self.database: pw.Proxy = pw.Proxy()
         self.models: t.Dict[str, pw.Model] = {}
         self.router: Router = None
+        self.is_async: bool = False
         super(Plugin, self).__init__(app, **options)
 
     def setup(self, app: muffin.Application, **options):
         """Init the plugin."""
         super().setup(app, **options)
         self.database.initialize(db_url.connect(self.cfg.connection, **self.cfg.connection_params))
+        if isinstance(self.database.obj, DatabaseAsync):
+            self.is_async = True
 
         if self.cfg.migrations_enabled:
             self.router = Router(self.database, migrate_dir=self.cfg.migrations_path)
@@ -100,21 +103,34 @@ class Plugin(BasePlugin):
                 self.router.logger.info('Migrations are undone:')
                 self.router.logger.info('\n'.join(self.router.diff))
 
-        if not isinstance(self.database.obj, DatabaseAsync):
-            return
-
         if self.cfg.manage_connections:
-            self.app.middleware(self.__middleware__)
+            self.app.middleware(self.__amiddleware__ if self.is_async else self.__middleware__)
 
     def __getattr__(self, name: str) -> t.Any:
         """Proxy attrs to self database."""
         return getattr(self.database.obj, name)
 
-    async def __middleware__(
+    async def __amiddleware__(
             self, handler: t.Callable, request: muffin.Request, receive: Receive, send: Send):
-        """Manage connections."""
+        """Manage connections asynchronously."""
         await self.database.connect_async()
 
+        try:
+            response = await handler(request, receive, send)
+            self.database.commit()
+            return response
+
+        except pw.DatabaseError:
+            self.database.rollback()
+            raise
+
+        finally:
+            await self.database.close_async()
+
+    async def __middleware__(
+            self, handler: t.Callable, request: muffin.Request, receive: Receive, send: Send):
+        """Manage connections asynchronously."""
+        self.database.connect()
         try:
             response = await handler(request, receive, send)
             self.database.commit()
@@ -129,19 +145,18 @@ class Plugin(BasePlugin):
 
     async def __aenter__(self):
         """Connect async and enter the database context."""
-        await self.database.connect_async()
-        self.database.obj.__enter__()
+        await self.database.obj.__aenter__()
 
     async def __aexit__(self, *args):
         """Exit from the database context."""
-        self.database.obj.__exit__(*args)
+        await self.database.obj.__aexit__(*args)
 
-    def shutdown(self):
+    async def shutdown(self):
         """Close connections."""
-        if hasattr(self.database, 'close_all'):
-            self.database.close_all()
-        else:
-            self.database.close()
+        for m in ['close_all_async', 'close_async', 'close_all', 'close']:
+            if hasattr(self.database.obj, m):
+                getattr(self.database.obj, m)()
+                break
 
     def register(self, model: pw.Model):
         """Register a model with the plugin."""
