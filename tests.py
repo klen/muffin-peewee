@@ -2,6 +2,7 @@ import muffin
 import peewee
 import pytest
 from unittest import mock
+import sys
 
 
 @pytest.fixture
@@ -133,4 +134,6 @@ async def test_sync():
         await app.lifespan.run('startup')
         await app.lifespan.run('shutdown')
         assert mocked.called
-        assert mocked.await_count == 1
+        # TODO: py37
+        if sys.version_info >= (3, 8):
+            assert mocked.await_count == 1
