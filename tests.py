@@ -7,9 +7,7 @@ import sys
 
 @pytest.fixture
 def app():
-    return muffin.Application(
-        'peewee', PEEWEE_CONNECTION='sqliteext+async:///:memory:'
-    )
+    return muffin.Application(peewee_connection='sqliteext+async:///:memory:')
 
 
 @pytest.fixture
