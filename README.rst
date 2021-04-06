@@ -68,7 +68,7 @@ Options
 =========================== ======================================= =========================== 
 Name                        Default value                           Desctiption
 --------------------------- --------------------------------------- ---------------------------
-**CONNECTION**              ``sqlite:///db.sqlite``                 Database URL
+**CONNECTION**              ``sqlite+async:///db.sqlite``           Database URL
 **CONNECTION_PARAMS**       ``{}``                                  Additional params for DB connection
 **MANAGE_CONNECTIONS**      ``True``                                Install a middleware to aquire db connections automatically
 **MIGRATIONS_ENABLED**      ``True``                                Enable migrations with
