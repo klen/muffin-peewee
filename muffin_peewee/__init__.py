@@ -38,7 +38,7 @@ class Plugin(BasePlugin):
     defaults = {
 
         # Connection params
-        'connection': 'sqlite:///db.sqlite',
+        'connection': 'sqlite+async:///db.sqlite',
         'connection_params': {},
 
         # Manage connections automatically
@@ -103,14 +103,14 @@ class Plugin(BasePlugin):
                 self.router.logger.info('Migrations are undone:')
                 self.router.logger.info('\n'.join(self.router.diff))
 
-        if self.cfg.manage_connections:
-            self.app.middleware(self.__amiddleware__ if self.is_async else self.__middleware__)
+        if self.cfg.manage_connections and self.is_async:
+            app.middleware(self.__middleware__)
 
     def __getattr__(self, name: str) -> t.Any:
         """Proxy attrs to self database."""
         return getattr(self.database.obj, name)
 
-    async def __amiddleware__(
+    async def __middleware__(
             self, handler: t.Callable, request: muffin.Request, receive: Receive, send: Send):
         """Manage connections asynchronously."""
         await self.database.connect_async()
@@ -126,22 +126,6 @@ class Plugin(BasePlugin):
 
         finally:
             await self.database.close_async()
-
-    async def __middleware__(
-            self, handler: t.Callable, request: muffin.Request, receive: Receive, send: Send):
-        """Manage connections asynchronously."""
-        self.database.connect(reuse_if_open=True)
-        try:
-            response = await handler(request, receive, send)
-            self.database.commit()
-            return response
-
-        except pw.DatabaseError:
-            self.database.rollback()
-            raise
-
-        finally:
-            self.database.close()
 
     async def __aenter__(self):
         """Connect async and enter the database context."""
