@@ -113,7 +113,7 @@ class Plugin(BasePlugin):
     async def __middleware__(
             self, handler: t.Callable, request: muffin.Request, receive: Receive, send: Send):
         """Manage connections asynchronously."""
-        await self.database.connect_async()
+        await self.database.connect_async(reuse_if_open=True)
 
         try:
             response = await handler(request, receive, send)
