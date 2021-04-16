@@ -64,6 +64,10 @@ class Plugin(BasePlugin):
         if isinstance(self.database.obj, DatabaseAsync):
             self.is_async = True
 
+        #  Hack for sqlite in memory (for tests)
+        if self.is_async and self.database.obj.database == ':memory:':
+            self.database.obj._state = pw._ConnectionLocal()
+
         if self.cfg.migrations_enabled:
             self.router = Router(self.database, migrate_dir=self.cfg.migrations_path)
 
