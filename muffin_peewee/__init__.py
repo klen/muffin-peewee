@@ -6,7 +6,7 @@ import typing as t
 import muffin
 import peewee as pw
 from aiopeewee import db_url, DatabaseAsync
-from muffin._types import Receive, Send
+from muffin.typing import Receive, Send
 from muffin.plugin import BasePlugin
 from peewee_migrate import Router
 
