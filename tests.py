@@ -1,8 +1,9 @@
+import sys
+from unittest import mock
+
 import muffin
 import peewee
 import pytest
-from unittest import mock
-import sys
 
 
 @pytest.fixture

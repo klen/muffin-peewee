@@ -205,12 +205,6 @@ class JSONField(pw.Field):
             return self._json_dumps(value)
 
         if not isinstance(value, Json):
-            return pw.Cast(self.dumps(value), 'json')
+            return pw.Cast(self._json_dumps(value), 'json')
 
-        return value
-
-    def coerce(self, value):
-        """Parse value from database."""
-        if self.db_field == 'text' and isinstance(value, str):
-            return self.loads(value)
         return value
