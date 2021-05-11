@@ -208,3 +208,46 @@ class JSONField(pw.Field):
             return pw.Cast(self._json_dumps(value), 'json')
 
         return value
+
+
+class Choices:
+
+    """Model's choices helper."""
+
+    __slots__ = '_choices', '_map', '_rmap'
+
+    def __init__(self, choices, *args):
+        """Parse provided choices."""
+        if isinstance(choices, dict):
+            choices = [(n, v) for v, n in choices.items()]
+
+        elif args:
+            choices = [choices, *args]
+
+        self._choices = [
+            (choice, choice) if isinstance(choice, str) else choice
+            for choice in choices
+        ]
+        self._map = dict([(n, v) for v, n in self._choices])
+        self._rmap = dict(self._choices)
+
+    def __iter__(self):
+        """Iterate self."""
+        return iter(self._choices)
+
+    def __getattr__(self, name, default=None):
+        """Get choice value by name."""
+        return self._map.get(name, default)
+
+    def __getitem__(self, name):
+        """Get value by name."""
+        return self._map[name]
+
+    def __call__(self, value):
+        """Get name by value."""
+        return self._rmap[value]
+
+    def __deepcopy__(self, memo):
+        result = Choices(self._map.copy())
+        memo[id(self)] = result
+        return result
