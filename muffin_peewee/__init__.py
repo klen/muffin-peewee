@@ -7,7 +7,7 @@ import muffin
 import peewee as pw
 from aiopeewee import db_url, DatabaseAsync
 from muffin.typing import Receive, Send
-from muffin.plugin import BasePlugin
+from muffin.plugins import BasePlugin
 from peewee_migrate import Router
 
 
