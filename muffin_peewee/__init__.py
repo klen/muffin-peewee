@@ -255,7 +255,8 @@ class Choices:
         return result
 
 
-def async_middleware(database):
+def async_middleware(database) -> t.Callable[
+        [t.Callable, muffin.Request, Receive, Send], t.Awaitable]:
     """Create a middleware for async databases."""
 
     async def md(handler: t.Callable, request: muffin.Request, receive: Receive, send: Send):
@@ -276,7 +277,8 @@ def async_middleware(database):
     return md
 
 
-def sync_middleware(database):
+def sync_middleware(database) -> t.Callable[
+        [t.Callable, muffin.Request, Receive, Send], t.Awaitable]:
     """Create a middleware for sync databases."""
 
     async def md(handler: t.Callable, request: muffin.Request, receive: Receive, send: Send):
@@ -293,3 +295,5 @@ def sync_middleware(database):
 
         finally:
             database.close()
+
+    return md
