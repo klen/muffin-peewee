@@ -107,8 +107,10 @@ class Plugin(BasePlugin):
                 self.router.logger.info('Migrations are undone:')
                 self.router.logger.info('\n'.join(self.router.diff))
 
-        if self.cfg.manage_connections and self.is_async:
-            app.middleware(self.__middleware__)
+        if self.cfg.manage_connections:
+            db = self.database
+            md = self.is_async and async_middleware(db) or sync_middleware(db)
+            app.middleware(md, insert_first=True)
 
     def __getattr__(self, name: str) -> t.Any:
         """Proxy attrs to self database."""
@@ -251,3 +253,43 @@ class Choices:
         result = Choices(self._map.copy())
         memo[id(self)] = result
         return result
+
+
+def async_middleware(database):
+    """Create a middleware for async databases."""
+
+    async def md(handler: t.Callable, request: muffin.Request, receive: Receive, send: Send):
+        await database.connect_async(reuse_if_open=True)
+
+        try:
+            response = await handler(request, receive, send)
+            database.commit()
+            return response
+
+        except pw.DatabaseError:
+            database.rollback()
+            raise
+
+        finally:
+            await database.close_async()
+
+    return md
+
+
+def sync_middleware(database):
+    """Create a middleware for sync databases."""
+
+    async def md(handler: t.Callable, request: muffin.Request, receive: Receive, send: Send):
+        database.connect(reuse_if_open=True)
+
+        try:
+            response = await handler(request, receive, send)
+            database.commit()
+            return response
+
+        except pw.DatabaseError:
+            database.rollback()
+            raise
+
+        finally:
+            database.close()
