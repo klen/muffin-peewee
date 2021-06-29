@@ -116,23 +116,6 @@ class Plugin(BasePlugin):
         """Proxy attrs to self database."""
         return getattr(self.database.obj, name)
 
-    async def __middleware__(
-            self, handler: t.Callable, request: muffin.Request, receive: Receive, send: Send):
-        """Manage connections asynchronously."""
-        await self.database.connect_async(reuse_if_open=True)
-
-        try:
-            response = await handler(request, receive, send)
-            self.database.commit()
-            return response
-
-        except pw.DatabaseError:
-            self.database.rollback()
-            raise
-
-        finally:
-            await self.database.close_async()
-
     async def __aenter__(self):
         """Connect async and enter the database context."""
         await self.database.obj.__aenter__()
@@ -260,15 +243,15 @@ def async_middleware(database) -> t.Callable[
     """Create a middleware for async databases."""
 
     async def md(handler: t.Callable, request: muffin.Request, receive: Receive, send: Send):
-        await database.connect_async(reuse_if_open=True)
+        conn = await database.connect_async(reuse_if_open=True)
 
         try:
             response = await handler(request, receive, send)
-            database.commit()
+            conn.commit()
             return response
 
         except pw.DatabaseError:
-            database.rollback()
+            conn.rollback()
             raise
 
         finally:
@@ -283,14 +266,15 @@ def sync_middleware(database) -> t.Callable[
 
     async def md(handler: t.Callable, request: muffin.Request, receive: Receive, send: Send):
         database.connect(reuse_if_open=True)
+        conn = database.connection()
 
         try:
             response = await handler(request, receive, send)
-            database.commit()
+            conn.commit()
             return response
 
         except pw.DatabaseError:
-            database.rollback()
+            conn.rollback()
             raise
 
         finally:

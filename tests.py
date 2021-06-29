@@ -18,7 +18,7 @@ def db(app):
     return muffin_peewee.Plugin(app)
 
 
-@pytest.fixture(autouse=True)
+@pytest.fixture
 def transaction(db):
     """Clean changes after test."""
     try:
@@ -29,7 +29,7 @@ def transaction(db):
         pass
 
 
-def test_json_field(db):
+def test_json_field(db, transaction):
     from muffin_peewee import JSONField
 
     @db.register
@@ -48,7 +48,7 @@ def test_json_field(db):
     assert test.json == {'key': 'value'}
 
 
-def test_migrations(db, tmpdir):
+def test_migrations(db, tmpdir, transaction):
     assert db.router
 
     db.router.migrate_dir = str(tmpdir.mkdir('migrations'))
@@ -73,7 +73,7 @@ def test_migrations(db, tmpdir):
     assert '002_auto' == name
 
 
-def test_uuid(db):
+def test_uuid(db, transaction):
     """ Test for UUID in Sqlite. """
     @db.register
     class M(peewee.Model):
@@ -87,14 +87,14 @@ def test_uuid(db):
     assert M.get() == m
 
 
-def test_cli(app):
+def test_cli(app, db):
     assert 'pw_create' in app.manage.commands
     assert 'pw_migrate' in app.manage.commands
     assert 'pw_rollback' in app.manage.commands
     assert 'pw_list' in app.manage.commands
 
 
-async def test_async():
+async def test_async(transaction):
     import muffin_peewee
 
     app = muffin.Application('peewee', PEEWEE_CONNECTION='sqliteext+async:///:memory:')
@@ -136,3 +136,57 @@ async def test_sync():
         # TODO: py37
         if sys.version_info >= (3, 8):
             assert mocked.await_count == 1
+
+
+async def test_sync_middleware(tmp_path):
+    from muffin_peewee import Plugin
+
+    db = tmp_path / 'db.sqlite'
+    app = muffin.Application('peewee', PEEWEE_CONNECTION=f"sqlite:///{db}")
+    db = Plugin(app)
+
+    assert app.internal_middlewares
+
+    @db.register
+    class User(peewee.Model):
+        name = peewee.CharField()
+
+    User.create_table()
+    User.create(name='test')
+
+    @app.route('/')
+    async def index(request):
+        return User.select().count()
+
+    client = muffin.TestClient(app)
+    async with client.lifespan():
+        res = await client.get('/')
+        assert res.status_code == 200
+        assert await res.text() == '1'
+
+
+async def test_async_middleware(tmp_path):
+    from muffin_peewee import Plugin
+
+    db = tmp_path / 'db.sqlite'
+    app = muffin.Application('peewee', PEEWEE_CONNECTION=f"sqlite+async:///{db}")
+    db = Plugin(app)
+
+    assert app.internal_middlewares
+
+    @db.register
+    class User(peewee.Model):
+        name = peewee.CharField()
+
+    User.create_table()
+    User.create(name='test')
+
+    @app.route('/')
+    async def index(request):
+        return User.select().count()
+
+    client = muffin.TestClient(app)
+    async with client.lifespan():
+        res = await client.get('/')
+        assert res.status_code == 200
+        assert await res.text() == '1'
