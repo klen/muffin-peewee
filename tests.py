@@ -118,7 +118,8 @@ async def test_async(transaction):
     assert list(Test.select().execute()) == []
     db.close()
 
-    async with db:
+    async with db as conn:
+        assert conn
         assert db.transaction_depth() == 1
 
     assert db.transaction_depth() == 0

@@ -118,7 +118,7 @@ class Plugin(BasePlugin):
 
     async def __aenter__(self):
         """Connect async and enter the database context."""
-        await self.database.obj.__aenter__()
+        return await self.database.obj.__aenter__()
 
     async def __aexit__(self, *args):
         """Exit from the database context."""
