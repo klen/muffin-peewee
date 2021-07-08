@@ -125,11 +125,12 @@ async def test_async(transaction):
     assert db.transaction_depth() == 0
 
 
-async def test_sync():
+async def test_lifespan():
     import muffin_peewee
 
     app = muffin.Application('peewee', PEEWEE_CONNECTION='sqlite+async:///:memory:')
     db = muffin_peewee.Plugin(app)
+
     with mock.patch.object(db.database.obj, 'close_async') as mocked:
         await app.lifespan.run('startup')
         await app.lifespan.run('shutdown')
