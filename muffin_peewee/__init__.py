@@ -102,21 +102,44 @@ class Plugin(BasePlugin):
                 self.router.logger.info('\n'.join(self.router.diff))
 
         if self.cfg.manage_connections:
-            db = self.database
-            md = self.is_async and async_middleware(db) or sync_middleware(db)
-            app.middleware(md, insert_first=True)
+            app.middleware(self.__middleware__, insert_first=True)
 
     def __getattr__(self, name: str) -> t.Any:
         """Proxy attrs to self database."""
         return getattr(self.database.obj, name)
 
     async def __aenter__(self):
-        """Connect async and enter the database context."""
-        return await self.database.obj.__aenter__()
+        """Connect and enter the database context."""
+        database = self.database
+        if self.is_async:
+            return await database.obj.__aenter__()
+
+        database.connect(reuse_if_open=True)
+        database.__enter__()
+        return database.connection()
 
     async def __aexit__(self, *args):
         """Exit from the database context."""
-        await self.database.obj.__aexit__(*args)
+        database = self.database
+        if self.is_async:
+            await database.obj.__aexit__(*args)
+
+        else:
+            database.__exit__(*args)
+            database.close()
+
+    async def __middleware__(
+            self, handler: t.Callable, request: muffin.Request, receive: Receive, send: Send):
+        """Manage connections for request."""
+        async with self as conn:
+            try:
+                response = await handler(request, receive, send)
+                conn.commit()
+                return response
+
+            except pw.DatabaseError:
+                conn.rollback()
+                raise
 
     async def shutdown(self):
         """Close connections."""
@@ -136,48 +159,3 @@ class Plugin(BasePlugin):
         """Configure pytest tests."""
         for model in self.models.values():
             model.create_table()
-
-
-def async_middleware(database) -> t.Callable[
-        [t.Callable, muffin.Request, Receive, Send], t.Awaitable]:
-    """Create a middleware for async databases."""
-
-    async def md(handler: t.Callable, request: muffin.Request, receive: Receive, send: Send):
-        conn = await database.connect_async(reuse_if_open=True)
-
-        try:
-            response = await handler(request, receive, send)
-            conn.commit()
-            return response
-
-        except pw.DatabaseError:
-            conn.rollback()
-            raise
-
-        finally:
-            await database.close_async()
-
-    return md
-
-
-def sync_middleware(database) -> t.Callable[
-        [t.Callable, muffin.Request, Receive, Send], t.Awaitable]:
-    """Create a middleware for sync databases."""
-
-    async def md(handler: t.Callable, request: muffin.Request, receive: Receive, send: Send):
-        database.connect(reuse_if_open=True)
-        conn = database.connection()
-
-        try:
-            response = await handler(request, receive, send)
-            conn.commit()
-            return response
-
-        except pw.DatabaseError:
-            conn.rollback()
-            raise
-
-        finally:
-            database.close()
-
-    return md
