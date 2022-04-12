@@ -42,6 +42,7 @@ class Plugin(BasePlugin):
         'migrations_enabled': True,
         'migrations_path': 'migrations',
     }
+    router: Router
 
     def __init__(self, app: muffin.Application = None, **options):
         """Initialize the plugin."""
