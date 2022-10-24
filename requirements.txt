@@ -1,4 +1,4 @@
 aio-peewee      >= 0.4.0
 muffin          >= 0.83
 peewee          >= 3
-peewee-migrate  >= 1.4.3
+peewee-migrate  >= 1.6.2
