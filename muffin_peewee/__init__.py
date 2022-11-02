@@ -49,7 +49,7 @@ class Plugin(BasePlugin):
         self.is_async: bool = False
         super(Plugin, self).__init__(app, **options)
 
-    def setup(self, app: muffin.Application, **options):
+    def setup(self, app: muffin.Application, **options):  # noqa
         """Init the plugin."""
         super().setup(app, **options)
         self.database.initialize(
@@ -85,12 +85,12 @@ class Plugin(BasePlugin):
                 self.router.create(name, auto and [m for m in self.models.values()])
 
             @app.manage
-            def peewee_rollback(name: str = None):
+            def peewee_rollback():
                 """Rollback a migration.
 
                 :param name: Migration name (actually it always should be a last one)
                 """
-                self.router.rollback(name)
+                self.router.rollback()
 
             @app.manage
             def peewee_list():
